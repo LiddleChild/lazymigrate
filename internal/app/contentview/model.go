@@ -166,16 +166,10 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 		m.viewport.SetContent(
 			lipgloss.JoinVertical(lipgloss.Top,
 				filename.Render(m.upContent.name),
-				lipgloss.JoinHorizontal(lipgloss.Left,
-					m.lineNumber(m.upContent.content),
-					m.upContent.content,
-				),
+				m.renderWithLineNumber(m.upContent.content),
 				"",
 				filename.Render(m.downContent.name),
-				lipgloss.JoinHorizontal(lipgloss.Left,
-					m.lineNumber(m.downContent.content),
-					m.downContent.content,
-				),
+				m.renderWithLineNumber(m.downContent.content),
 			),
 		)
 	}
@@ -193,7 +187,7 @@ func (m *Model) borderColor() lipgloss.ANSIColor {
 	}
 }
 
-func (m *Model) lineNumber(s string) string {
+func (m *Model) renderWithLineNumber(s string) string {
 	count := strings.Count(s, "\n") + 1
 
 	mx := len(strconv.FormatInt(int64(count), 10))
@@ -212,5 +206,8 @@ func (m *Model) lineNumber(s string) string {
 		arr = append(arr, style.Render(strconv.FormatInt(int64(i+1), 10)))
 	}
 
-	return strings.Join(arr, "\n")
+	return lipgloss.JoinHorizontal(lipgloss.Left,
+		strings.Join(arr, "\n"),
+		s,
+	)
 }
