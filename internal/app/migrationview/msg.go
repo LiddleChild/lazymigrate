@@ -28,3 +28,15 @@ func SelectMigrationStepCmd(m migrator.MigrationStep) tea.Cmd {
 		}
 	}
 }
+
+type MigrateMsg struct {
+	Version uint
+}
+
+func MigrateCmd(version uint) tea.Cmd {
+	return func() tea.Msg {
+		return MigrateMsg{
+			Version: version,
+		}
+	}
+}

@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	Keyj = key.NewBinding(key.WithKeys("j", "down"))
-	Keyk = key.NewBinding(key.WithKeys("k", "up"))
-	Keyg = key.NewBinding(key.WithKeys("g"))
-	KeyG = key.NewBinding(key.WithKeys("G"))
+	Keyj     = key.NewBinding(key.WithKeys("j", "down"))
+	Keyk     = key.NewBinding(key.WithKeys("k", "up"))
+	Keyg     = key.NewBinding(key.WithKeys("g"))
+	KeyG     = key.NewBinding(key.WithKeys("G"))
+	KeySpace = key.NewBinding(key.WithKeys(" "))
 )
 
 type Model struct {
@@ -79,6 +80,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		case key.Matches(msg, Keyg):
 			cmd = m.SetCursor(0)
 			cmds = append(cmds, cmd)
+
+		case key.Matches(msg, KeySpace):
+			cmds = append(cmds, MigrateCmd(m.GetSelectedMigrationStep().Version))
 		}
 
 	case UpdateMigrationMsg:
@@ -210,6 +214,10 @@ func (m *Model) SetCursor(cursor int) tea.Cmd {
 	m.cursor = cursor
 
 	return SelectMigrationStepCmd(m.migration.Steps[m.cursor])
+}
+
+func (m *Model) GetSelectedMigrationStep() migrator.MigrationStep {
+	return m.migration.Steps[m.cursor]
 }
 
 func (m *Model) borderColor() lipgloss.ANSIColor {

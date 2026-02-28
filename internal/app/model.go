@@ -74,6 +74,7 @@ func (m *model) Init() tea.Cmd {
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
+	case migrationview.UpdateMigrationMsg:
 	default:
 		spew.Fdump(log.Entry, msg)
 	}
@@ -111,6 +112,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+
+	case migrationview.MigrateMsg:
+		if err := m.migrator.Goto(msg.Version); err != nil {
+			panic(err)
+		}
 	}
 
 	m.migrationview, cmd = m.migrationview.Update(msg)
