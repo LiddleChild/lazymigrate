@@ -10,12 +10,19 @@ import (
 	teav2 "charm.land/bubbletea/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/migrationview"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
-	"github.com/LiddleChild/lazymigrate/internal/log"
+	"github.com/LiddleChild/lazymigrate/internal/componenets/focus"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/davecgh/go-spew/spew"
+)
+
+var (
+	Keyj = key.NewBinding(key.WithKeys("j"))
+	Keyk = key.NewBinding(key.WithKeys("k"))
+	Keyg = key.NewBinding(key.WithKeys("g"))
+	KeyG = key.NewBinding(key.WithKeys("G"))
 )
 
 type content struct {
@@ -24,6 +31,8 @@ type content struct {
 }
 
 type Model struct {
+	focus.Model
+
 	step             migrator.MigrationStep
 	isLoadingContent bool
 
@@ -36,15 +45,16 @@ type Model struct {
 
 func New() *Model {
 	viewport := viewport.New(0, 0)
-	viewport.KeyMap.Up.SetEnabled(false)
-	viewport.KeyMap.Down.SetEnabled(false)
 
 	s := spinner.New()
 	s.Spinner = spinner.MiniDot
 
 	return &Model{
+		Model:            focus.New(),
 		step:             migrator.MigrationStep{},
 		isLoadingContent: true,
+		upContent:        content{},
+		downContent:      content{},
 		viewport:         viewport,
 		spinner:          s,
 	}
@@ -118,13 +128,12 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		var cmd teav2.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, brownsugar.ToCmdV1(cmd)
-
-	default:
-		return m, nil
 	}
 
-	m.viewport, cmd = m.viewport.Update(msg)
-	cmds = append(cmds, cmd)
+	if m.IsFocused() {
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }
@@ -164,14 +173,24 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 				"",
 				filename.Render(m.downContent.name),
 				lipgloss.JoinHorizontal(lipgloss.Left,
-					m.lineNumber(m.upContent.content),
+					m.lineNumber(m.downContent.content),
 					m.downContent.content,
 				),
 			),
 		)
 	}
 
-	return border.Render(m.viewport.View())
+	return border.
+		BorderForeground(m.borderColor()).
+		Render(m.viewport.View())
+}
+
+func (m *Model) borderColor() lipgloss.ANSIColor {
+	if m.IsFocused() {
+		return brownsugar.ColorYellow
+	} else {
+		return brownsugar.ColorWhite
+	}
 }
 
 func (m *Model) lineNumber(s string) string {
@@ -192,8 +211,6 @@ func (m *Model) lineNumber(s string) string {
 	for i := range count {
 		arr = append(arr, style.Render(strconv.FormatInt(int64(i+1), 10)))
 	}
-
-	spew.Fdump(log.Entry, arr)
 
 	return strings.Join(arr, "\n")
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
+	"github.com/LiddleChild/lazymigrate/internal/componenets/focus"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -15,13 +16,15 @@ import (
 )
 
 var (
-	Keyj = key.NewBinding(key.WithKeys("j"))
-	Keyk = key.NewBinding(key.WithKeys("k"))
+	Keyj = key.NewBinding(key.WithKeys("j", "down"))
+	Keyk = key.NewBinding(key.WithKeys("k", "up"))
 	Keyg = key.NewBinding(key.WithKeys("g"))
 	KeyG = key.NewBinding(key.WithKeys("G"))
 )
 
 type Model struct {
+	focus.Model
+
 	migration migrator.Migration
 	cursor    int
 
@@ -34,6 +37,7 @@ func New() *Model {
 	viewport.KeyMap.Down.SetEnabled(false)
 
 	return &Model{
+		Model: focus.New(),
 		migration: migrator.Migration{
 			Steps:          make([]migrator.MigrationStep, 0),
 			CurrentVersion: 0,
@@ -55,6 +59,10 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if !m.IsFocused() {
+			break
+		}
+
 		switch {
 		case key.Matches(msg, Keyj):
 			cmd = m.SetCursor(m.cursor + 1)
@@ -88,8 +96,10 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
-	m.viewport, cmd = m.viewport.Update(msg)
-	cmds = append(cmds, cmd)
+	if m.IsFocused() {
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }
@@ -184,6 +194,7 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 	m.focusAtCursor()
 
 	return border.
+		BorderForeground(m.borderColor()).
 		Width(width).
 		Height(height).
 		Render(m.viewport.View())
@@ -199,6 +210,14 @@ func (m *Model) SetCursor(cursor int) tea.Cmd {
 	m.cursor = cursor
 
 	return SelectMigrationStepCmd(m.migration.Steps[m.cursor])
+}
+
+func (m *Model) borderColor() lipgloss.ANSIColor {
+	if m.IsFocused() {
+		return brownsugar.ColorYellow
+	} else {
+		return brownsugar.ColorWhite
+	}
 }
 
 func (m *Model) indexOfVersion(version uint) int {

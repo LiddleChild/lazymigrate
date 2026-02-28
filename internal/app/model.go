@@ -9,15 +9,36 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/davecgh/go-spew/spew"
 )
 
+type FocusedPane int
+
+const (
+	FocusPaneMigration FocusedPane = iota
+	FocusPaneContent
+	focusPaneEnd
+)
+
+func (fp *FocusedPane) Next() {
+	*fp = (*fp + 1) % focusPaneEnd
+}
+
+var (
+	Keyq     = key.NewBinding(key.WithKeys("q"))
+	KeyCtrlC = key.NewBinding(key.WithKeys("ctrl+c"))
+	KeyEnter = key.NewBinding(key.WithKeys("enter"))
+	KeyEsc   = key.NewBinding(key.WithKeys("esc"))
+)
+
 var _ tea.Model = (*model)(nil)
 
 type model struct {
-	migrator *migrator.Migrator
+	migrator    *migrator.Migrator
+	focusedPane FocusedPane
 
 	width  int
 	height int
@@ -28,10 +49,13 @@ type model struct {
 
 func New(migrator *migrator.Migrator) tea.Model {
 	migrationview := migrationview.New()
+	migrationview.Focus()
+
 	contentview := contentview.New()
 
 	return &model{
 		migrator:      migrator,
+		focusedPane:   FocusPaneMigration,
 		width:         0,
 		height:        0,
 		migrationview: migrationview,
@@ -61,15 +85,31 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "q" || msg.String() == "ctrl+c" {
+		switch {
+		case key.Matches(msg, Keyq) || key.Matches(msg, KeyCtrlC):
 			return m, tea.Quit
+
+		case key.Matches(msg, KeyEnter):
+			m.focusedPane = FocusPaneContent
+
+		case key.Matches(msg, KeyEsc):
+			m.focusedPane = FocusPaneMigration
+		}
+
+		m.migrationview.Blur()
+		m.contentview.Blur()
+
+		switch m.focusedPane {
+		case FocusPaneMigration:
+			m.migrationview.Focus()
+
+		case FocusPaneContent:
+			m.contentview.Focus()
 		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-
-	case migrationview.SelectMigrationStepMsg:
 	}
 
 	m.migrationview, cmd = m.migrationview.Update(msg)
