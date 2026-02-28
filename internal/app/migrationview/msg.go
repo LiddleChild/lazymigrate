@@ -1,8 +1,8 @@
 package migrationview
 
 import (
+	tea "charm.land/bubbletea/v2"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 type UpdateMigrationMsg struct {

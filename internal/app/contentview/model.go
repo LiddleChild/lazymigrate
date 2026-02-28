@@ -6,16 +6,15 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
-	teav2 "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/migrationview"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/componenets/focus"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var (
@@ -44,7 +43,7 @@ type Model struct {
 }
 
 func New() *Model {
-	viewport := viewport.New(0, 0)
+	viewport := viewport.New()
 
 	s := spinner.New()
 	s.Spinner = spinner.MiniDot
@@ -75,7 +74,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		m.step = msg.MigrationStep
 
 		if !m.isLoadingContent {
-			cmds = append(cmds, brownsugar.ToCmdV1(m.spinner.Tick))
+			cmds = append(cmds, m.spinner.Tick)
 		}
 		m.isLoadingContent = true
 
@@ -125,9 +124,8 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			return m, nil
 		}
 
-		var cmd teav2.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
-		return m, brownsugar.ToCmdV1(cmd)
+		return m, cmd
 	}
 
 	if m.IsFocused() {
@@ -153,8 +151,8 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 		AlignVertical(lipgloss.Center).
 		Render(m.spinner.View())
 
-	m.viewport.Width = width
-	m.viewport.Height = height
+	m.viewport.SetWidth(width)
+	m.viewport.SetHeight(height)
 
 	filename := lipgloss.NewStyle().
 		Foreground(brownsugar.ColorBlack).
@@ -198,8 +196,10 @@ func (m *Model) renderWithLineNumber(s string) string {
 		BorderForeground(brownsugar.ColorBrightBlack).
 		MarginRight(1).
 		MarginLeft(1).
-		Width(mx).
 		Align(lipgloss.Right)
+
+	style = style.
+		Width(mx + style.GetBorderRightSize())
 
 	arr := make([]string, 0, count)
 	for i := range count {

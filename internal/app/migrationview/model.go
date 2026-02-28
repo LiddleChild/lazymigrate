@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/componenets/focus"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var (
@@ -33,7 +33,7 @@ type Model struct {
 }
 
 func New() *Model {
-	viewport := viewport.New(0, 0)
+	viewport := viewport.New()
 	viewport.KeyMap.Up.SetEnabled(false)
 	viewport.KeyMap.Down.SetEnabled(false)
 
@@ -192,15 +192,13 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 		)
 	}
 
-	m.viewport.Width = width
-	m.viewport.Height = height
+	m.viewport.SetWidth(width)
+	m.viewport.SetHeight(height)
 	m.viewport.SetContent(strings.Join(contents, "\n"))
 	m.focusAtCursor()
 
 	return border.
 		BorderForeground(m.borderColor()).
-		Width(width).
-		Height(height).
 		Render(m.viewport.View())
 }
 
@@ -236,10 +234,10 @@ func (m *Model) indexOfVersion(version uint) int {
 
 func (m *Model) focusAtCursor() {
 	var (
-		offset = m.cursor - m.viewport.Height/2
+		offset = m.cursor - m.viewport.Height()/2
 
-		topBound    = m.cursor - m.viewport.Height/2
-		bottomBound = m.cursor + m.viewport.Height/2
+		topBound    = m.cursor - m.viewport.Height()/2
+		bottomBound = m.cursor + m.viewport.Height()/2
 	)
 
 	if topBound < 0 {

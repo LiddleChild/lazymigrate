@@ -9,7 +9,7 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/runconfig"
 	"github.com/LiddleChild/lazymigrate/internal/validator"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // func main() {
@@ -57,9 +57,7 @@ func run() error {
 
 	app := app.New(m)
 
-	p := tea.NewProgram(app, tea.WithAltScreen())
-
-	if _, err := p.Run(); err != nil {
+	if _, err := tea.NewProgram(app).Run(); err != nil {
 		return err
 	}
 

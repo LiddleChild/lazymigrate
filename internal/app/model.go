@@ -3,15 +3,15 @@ package app
 import (
 	"math"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/contentview"
 	"github.com/LiddleChild/lazymigrate/internal/app/migrationview"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -128,9 +128,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *model) View() string {
+func (m *model) View() tea.View {
 	if m.width == 0 || m.height == 0 {
-		return ""
+		return tea.NewView("")
 	}
 
 	topH := int(math.Round(float64(m.height) * 2 / 3))
@@ -151,22 +151,25 @@ func (m *model) View() string {
 		Height(top.GetHeight())
 
 	bottomPane := borderPane.
-		Width(m.width - borderPane.GetHorizontalFrameSize()).
-		Height(bottomH - borderPane.GetVerticalFrameSize())
+		Width(m.width).
+		Height(bottomH)
 
-	return lipgloss.JoinVertical(lipgloss.Top,
-		top.Render(
-			lipgloss.JoinHorizontal(lipgloss.Left,
-				m.migrationview.Render(brownsugar.RenderContext{
-					Width:  migrationPane.GetWidth(),
-					Height: migrationPane.GetHeight(),
-				}),
-				m.contentview.Render(brownsugar.RenderContext{
-					Width:  contentPane.GetWidth(),
-					Height: contentPane.GetHeight(),
-				}),
+	return tea.View{
+		AltScreen: true,
+		Content: lipgloss.JoinVertical(lipgloss.Top,
+			top.Render(
+				lipgloss.JoinHorizontal(lipgloss.Left,
+					m.migrationview.Render(brownsugar.RenderContext{
+						Width:  migrationPane.GetWidth(),
+						Height: migrationPane.GetHeight(),
+					}),
+					m.contentview.Render(brownsugar.RenderContext{
+						Width:  contentPane.GetWidth(),
+						Height: contentPane.GetHeight(),
+					}),
+				),
 			),
+			bottomPane.Render("Logs"),
 		),
-		bottomPane.Render("Logs"),
-	)
+	}
 }

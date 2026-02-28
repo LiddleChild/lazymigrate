@@ -1,6 +1,6 @@
 package brownsugar
 
-import "github.com/charmbracelet/lipgloss"
+import "charm.land/lipgloss/v2"
 
 const (
 	ColorBlack = lipgloss.ANSIColor(iota)
