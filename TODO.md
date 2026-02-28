@@ -1,0 +1,2 @@
+- pane selection
+- support config file in yaml for multiple sources

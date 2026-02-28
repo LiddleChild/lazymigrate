@@ -1,0 +1,229 @@
+package migrationview
+
+import (
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
+	"github.com/LiddleChild/lazymigrate/internal/migrator"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+var (
+	Keyj = key.NewBinding(key.WithKeys("j"))
+	Keyk = key.NewBinding(key.WithKeys("k"))
+	Keyg = key.NewBinding(key.WithKeys("g"))
+	KeyG = key.NewBinding(key.WithKeys("G"))
+)
+
+type Model struct {
+	migration migrator.Migration
+	cursor    int
+
+	viewport viewport.Model
+}
+
+func New() *Model {
+	viewport := viewport.New(0, 0)
+	viewport.KeyMap.Up.SetEnabled(false)
+	viewport.KeyMap.Down.SetEnabled(false)
+
+	return &Model{
+		migration: migrator.Migration{
+			Steps:          make([]migrator.MigrationStep, 0),
+			CurrentVersion: 0,
+			IsDirty:        false,
+		},
+		viewport: viewport,
+	}
+}
+
+func (m *Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, Keyj):
+			cmd = m.SetCursor(m.cursor + 1)
+			cmds = append(cmds, cmd)
+
+		case key.Matches(msg, Keyk):
+			cmd = m.SetCursor(m.cursor - 1)
+			cmds = append(cmds, cmd)
+
+		case key.Matches(msg, KeyG):
+			cmd = m.SetCursor(m.numberOfSteps() - 1)
+			cmds = append(cmds, cmd)
+
+		case key.Matches(msg, Keyg):
+			cmd = m.SetCursor(0)
+			cmds = append(cmds, cmd)
+		}
+
+	case UpdateMigrationMsg:
+		m.migration = msg.Migration
+		m.migration.Steps = slices.Insert(
+			msg.Migration.Steps,
+			0,
+			migrator.MigrationStep{
+				Version:    0,
+				Identifier: "ROOT (no migration applied)",
+			},
+		)
+
+		cmd = m.SetCursor(m.indexOfVersion(m.migration.CurrentVersion))
+		cmds = append(cmds, cmd)
+	}
+
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) Render(ctx brownsugar.RenderContext) string {
+	var (
+		border = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
+
+		width  = ctx.Width - border.GetHorizontalFrameSize()
+		height = ctx.Height - border.GetVerticalFrameSize()
+	)
+
+	var longestVersionLength int
+	for _, migration := range m.migration.Steps {
+		longestVersionLength = max(longestVersionLength, len(strconv.FormatInt(int64(migration.Version), 10)))
+	}
+
+	contents := []string{}
+	for i, migration := range m.migration.Steps {
+		var (
+			isDirtyVersion = migration.Version == m.migration.CurrentVersion && m.migration.IsDirty
+			isMigrated     = migration.Version <= m.migration.CurrentVersion
+			isSelected     = m.cursor == i
+		)
+
+		var symbol string
+		switch {
+		case isDirtyVersion:
+			symbol = "✗"
+		case migration.Version == 0:
+			symbol = "○"
+		case isMigrated:
+			symbol = "✔"
+		default:
+			symbol = "○"
+		}
+
+		line := fmt.Sprintf("%s %d %s",
+			symbol,
+			migration.Version,
+			migration.Identifier,
+		)
+
+		style := lipgloss.NewStyle().
+			BorderLeft(false).
+			BorderStyle(lipgloss.OuterHalfBlockBorder())
+
+		if isDirtyVersion {
+			style = style.
+				Bold(false).
+				Background(brownsugar.ColorRed).
+				Foreground(brownsugar.ColorBlack)
+		}
+
+		if !isMigrated {
+			style = style.
+				Bold(false).
+				Foreground(brownsugar.ColorBrightBlack)
+		}
+
+		if isSelected {
+			style = style.
+				Bold(true).
+				Foreground(brownsugar.ColorCyan).
+				Background(brownsugar.ColorBrightBlack).
+				BorderLeft(true)
+
+			if isDirtyVersion {
+				style = style.
+					Bold(true).
+					Background(brownsugar.ColorRed).
+					Foreground(brownsugar.ColorWhite)
+			}
+		}
+
+		style = style.
+			BorderForeground(style.GetForeground()).
+			BorderBackground(style.GetBackground()).
+			PaddingLeft(1 - style.GetBorderLeftSize())
+
+		lineWidth := len(line) + style.GetBorderLeftSize() + style.GetPaddingLeft()
+
+		contents = append(
+			contents,
+			style.Width(max(ctx.Width, lineWidth)).Render(line),
+		)
+	}
+
+	m.viewport.Width = width
+	m.viewport.Height = height
+	m.viewport.SetContent(strings.Join(contents, "\n"))
+	m.focusAtCursor()
+
+	return border.
+		Width(width).
+		Height(height).
+		Render(m.viewport.View())
+}
+
+func (m *Model) SetCursor(cursor int) tea.Cmd {
+	if cursor < 0 {
+		cursor = 0
+	} else if cursor >= m.numberOfSteps() {
+		cursor = m.numberOfSteps() - 1
+	}
+
+	m.cursor = cursor
+
+	return SelectMigrationStepCmd(m.migration.Steps[m.cursor])
+}
+
+func (m *Model) indexOfVersion(version uint) int {
+	return slices.IndexFunc(m.migration.Steps, func(migration migrator.MigrationStep) bool {
+		return migration.Version == version
+	})
+}
+
+func (m *Model) focusAtCursor() {
+	var (
+		offset = m.cursor - m.viewport.Height/2
+
+		topBound    = m.cursor - m.viewport.Height/2
+		bottomBound = m.cursor + m.viewport.Height/2
+	)
+
+	if topBound < 0 {
+		offset = 0
+	} else if bottomBound >= m.numberOfSteps() {
+		offset = topBound
+	}
+
+	m.viewport.SetYOffset(offset)
+}
+
+func (m *Model) numberOfSteps() int {
+	return len(m.migration.Steps)
+}
