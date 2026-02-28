@@ -118,6 +118,10 @@ func (m *Migrator) Stop() {
 	m.client.GracefulStop <- true
 }
 
-func (m *Migrator) Goto(version uint) error {
+func (m *Migrator) Migrate(version uint) error {
 	return m.client.Migrate(version)
+}
+
+func (m *Migrator) ForceMigrate(version uint) error {
+	return m.client.Force(int(version))
 }

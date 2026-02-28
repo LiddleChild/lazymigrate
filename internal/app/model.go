@@ -114,7 +114,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 	case migrationview.MigrateMsg:
-		if err := m.migrator.Goto(msg.Version); err != nil {
+		if err := m.migrator.Migrate(msg.Version); err != nil {
+			panic(err)
+		}
+
+	case migrationview.ForceMigrateMsg:
+		if err := m.migrator.ForceMigrate(msg.Version); err != nil {
 			panic(err)
 		}
 	}

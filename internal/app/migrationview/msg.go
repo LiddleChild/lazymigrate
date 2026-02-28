@@ -40,3 +40,15 @@ func MigrateCmd(version uint) tea.Cmd {
 		}
 	}
 }
+
+type ForceMigrateMsg struct {
+	Version uint
+}
+
+func ForceMigrateCmd(version uint) tea.Cmd {
+	return func() tea.Msg {
+		return ForceMigrateMsg{
+			Version: version,
+		}
+	}
+}

@@ -21,6 +21,7 @@ var (
 	Keyg     = key.NewBinding(key.WithKeys("g"))
 	KeyG     = key.NewBinding(key.WithKeys("G"))
 	KeySpace = key.NewBinding(key.WithKeys(" "))
+	Keyf     = key.NewBinding(key.WithKeys("f"))
 )
 
 type Model struct {
@@ -83,6 +84,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 
 		case key.Matches(msg, KeySpace):
 			cmds = append(cmds, MigrateCmd(m.GetSelectedMigrationStep().Version))
+
+		case key.Matches(msg, Keyf):
+			cmds = append(cmds, ForceMigrateCmd(m.GetSelectedMigrationStep().Version))
 		}
 
 	case UpdateMigrationMsg:
