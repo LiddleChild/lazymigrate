@@ -14,11 +14,8 @@ import (
 )
 
 type Migrator struct {
-	client *migrate.Migrate
-
-	steps          []MigrationStep
-	currentVersion uint
-	isDirty        bool
+	client     *migrate.Migrate
+	sourcePath string
 }
 
 func Open(path, database string) (*Migrator, error) {
@@ -28,12 +25,23 @@ func Open(path, database string) (*Migrator, error) {
 		return nil, err
 	}
 
+	return &Migrator{
+		sourcePath: path,
+		client:     client,
+	}, nil
+}
+
+func (m *Migrator) Stop() {
+	m.client.GracefulStop <- true
+}
+
+func (m *Migrator) GetMigration() (*Migration, error) {
 	var (
 		currentVersion uint
 		isDirty        bool
 	)
 
-	currentVersion, isDirty, err = client.Version()
+	currentVersion, isDirty, err := m.client.Version()
 	switch {
 	case errors.Is(err, migrate.ErrNilVersion):
 		currentVersion = 0
@@ -47,7 +55,7 @@ func Open(path, database string) (*Migrator, error) {
 		return nil, err
 	}
 
-	f, err := os.Open(path)
+	f, err := os.Open(m.sourcePath)
 	if err != nil {
 		return nil, err
 	}
@@ -59,63 +67,50 @@ func Open(path, database string) (*Migrator, error) {
 
 	mp := make(map[uint]MigrationStep)
 	for _, entry := range entries {
-		m, err := source.Parse(entry.Name())
+		migration, err := source.Parse(entry.Name())
 		if err != nil {
 			// ignore that entry, if it cannot be parse
 			// same behavior with migrate library
 			continue
 		}
 
-		step, ok := mp[m.Version]
+		step, ok := mp[migration.Version]
 		if !ok {
 			step = MigrationStep{
-				Version:    m.Version,
-				Identifier: m.Identifier,
+				Version:    migration.Version,
+				Identifier: migration.Identifier,
 			}
 		}
 
 		stepDirection := &MigrationStepDirection{
-			Fullname: m.Raw,
-			Path:     gopath.Join(wd, path, m.Raw),
+			Fullname: migration.Raw,
+			Path:     gopath.Join(wd, m.sourcePath, migration.Raw),
 		}
 
-		switch m.Direction {
+		switch migration.Direction {
 		case source.Up:
 			step.Up = stepDirection
 		case source.Down:
 			step.Down = stepDirection
 		}
 
-		mp[m.Version] = step
+		mp[migration.Version] = step
 	}
 
-	migrations := []MigrationStep{}
+	steps := []MigrationStep{}
 	for _, m := range mp {
-		migrations = append(migrations, m)
+		steps = append(steps, m)
 	}
 
-	slices.SortFunc(migrations, func(a, b MigrationStep) int {
+	slices.SortFunc(steps, func(a, b MigrationStep) int {
 		return int(a.Version) - int(b.Version)
 	})
 
-	return &Migrator{
-		client:         client,
-		steps:          migrations,
-		currentVersion: currentVersion,
-		isDirty:        isDirty,
+	return &Migration{
+		Steps:          steps,
+		CurrentVersion: currentVersion,
+		IsDirty:        isDirty,
 	}, nil
-}
-
-func (m *Migrator) GetMigration() Migration {
-	return Migration{
-		Steps:          m.steps,
-		CurrentVersion: m.currentVersion,
-		IsDirty:        m.isDirty,
-	}
-}
-
-func (m *Migrator) Stop() {
-	m.client.GracefulStop <- true
 }
 
 func (m *Migrator) Migrate(version uint) error {

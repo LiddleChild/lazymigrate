@@ -6,10 +6,10 @@ import (
 )
 
 type UpdateMigrationMsg struct {
-	Migration migrator.Migration
+	Migration *migrator.Migration
 }
 
-func UpdateMigrationsCmd(migration migrator.Migration) tea.Cmd {
+func UpdateMigrationCmd(migration *migrator.Migration) tea.Cmd {
 	return func() tea.Msg {
 		return UpdateMigrationMsg{
 			Migration: migration,

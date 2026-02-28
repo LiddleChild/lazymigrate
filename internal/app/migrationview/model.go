@@ -20,14 +20,14 @@ var (
 	Keyk     = key.NewBinding(key.WithKeys("k", "up"))
 	Keyg     = key.NewBinding(key.WithKeys("g"))
 	KeyG     = key.NewBinding(key.WithKeys("G"))
-	KeySpace = key.NewBinding(key.WithKeys(" "))
+	KeySpace = key.NewBinding(key.WithKeys("space"))
 	Keyf     = key.NewBinding(key.WithKeys("f"))
 )
 
 type Model struct {
 	focus.Model
 
-	migration migrator.Migration
+	migration *migrator.Migration
 	cursor    int
 
 	viewport viewport.Model
@@ -40,7 +40,7 @@ func New() *Model {
 
 	return &Model{
 		Model: focus.New(),
-		migration: migrator.Migration{
+		migration: &migrator.Migration{
 			Steps:          make([]migrator.MigrationStep, 0),
 			CurrentVersion: 0,
 			IsDirty:        false,

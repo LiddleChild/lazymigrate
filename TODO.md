@@ -1,1 +1,2 @@
+- report error in logs
 - support config file in yaml for multiple sources

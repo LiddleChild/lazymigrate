@@ -64,17 +64,20 @@ func New(migrator *migrator.Migrator) tea.Model {
 }
 
 func (m *model) Init() tea.Cmd {
-	return tea.Batch(
-		migrationview.UpdateMigrationsCmd(m.migrator.GetMigration()),
-		m.migrationview.Init(),
-		m.contentview.Init(),
+	return tea.Sequence(
+		tea.Batch(
+			m.migrationview.Init(),
+			m.contentview.Init(),
+		),
+		updateMigrationRequestCmd,
 	)
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case spinner.TickMsg:
-	case migrationview.UpdateMigrationMsg:
+	case spinner.TickMsg,
+		migrationview.UpdateMigrationMsg:
+
 	default:
 		spew.Fdump(log.Entry, msg)
 	}
@@ -113,15 +116,27 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 
+	case updateMigrationRequestMsg:
+		migration, err := m.migrator.GetMigration()
+		if err != nil {
+			panic(err)
+		}
+
+		return m, migrationview.UpdateMigrationCmd(migration)
+
 	case migrationview.MigrateMsg:
 		if err := m.migrator.Migrate(msg.Version); err != nil {
 			panic(err)
 		}
 
+		cmds = append(cmds, updateMigrationRequestCmd)
+
 	case migrationview.ForceMigrateMsg:
 		if err := m.migrator.ForceMigrate(msg.Version); err != nil {
 			panic(err)
 		}
+
+		cmds = append(cmds, updateMigrationRequestCmd)
 	}
 
 	m.migrationview, cmd = m.migrationview.Update(msg)
