@@ -113,3 +113,7 @@ func (m *Migrator) GetMigration() Migration {
 		IsDirty:        m.isDirty,
 	}
 }
+
+func (m *Migrator) Stop() {
+	m.client.GracefulStop <- true
+}
