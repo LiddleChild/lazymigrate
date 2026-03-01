@@ -1,2 +1,3 @@
+- migration state where it knows if the step is forced to or actually run
 - report error in logs
 - support config file in yaml for multiple sources
