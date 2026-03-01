@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
@@ -14,6 +15,7 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/components/focus"
+	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 )
 
@@ -31,6 +33,7 @@ type Model struct {
 
 	migration *migrator.Migration
 	cursor    int
+	isLocked  *atomic.Bool
 
 	viewport viewport.Model
 }
@@ -40,6 +43,9 @@ func New() *Model {
 	viewport.KeyMap.Up.SetEnabled(false)
 	viewport.KeyMap.Down.SetEnabled(false)
 
+	isLocked := new(atomic.Bool)
+	isLocked.Store(false)
+
 	return &Model{
 		Model: focus.New(),
 		migration: &migrator.Migration{
@@ -47,6 +53,8 @@ func New() *Model {
 			CurrentVersion: 0,
 			IsDirty:        false,
 		},
+		cursor:   0,
+		isLocked: isLocked,
 		viewport: viewport,
 	}
 }
@@ -68,27 +76,29 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 
 		switch {
-		case key.Matches(msg, Keyj):
+		case key.Matches(msg, Keyj) && !m.isLocked.Load():
 			cmd = m.SetCursor(m.cursor + 1)
 			agg.Add(cmd)
 
-		case key.Matches(msg, Keyk):
+		case key.Matches(msg, Keyk) && !m.isLocked.Load():
 			cmd = m.SetCursor(m.cursor - 1)
 			agg.Add(cmd)
 
-		case key.Matches(msg, KeyG):
+		case key.Matches(msg, KeyG) && !m.isLocked.Load():
 			cmd = m.SetCursor(m.numberOfSteps() - 1)
 			agg.Add(cmd)
 
-		case key.Matches(msg, Keyg):
+		case key.Matches(msg, Keyg) && !m.isLocked.Load():
 			cmd = m.SetCursor(0)
 			agg.Add(cmd)
 
-		case key.Matches(msg, KeySpace):
+		case key.Matches(msg, KeySpace) && m.lock():
+			fmt.Fprintln(log.Entry, "got lock")
+
 			version := m.GetSelectedMigrationStep().Version
 			agg.Add(brownsugar.Cmd(appevent.NewMigrateMsg(version)))
 
-		case key.Matches(msg, Keyf):
+		case key.Matches(msg, Keyf) && m.lock():
 			if m.GetSelectedMigrationStep().Version > 0 {
 				version := m.GetSelectedMigrationStep().Version
 				agg.Add(brownsugar.Cmd(appevent.NewForceMigrateMsg(version)))
@@ -109,6 +119,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		)
 
 		agg.Add(m.SetCursor(m.indexOfVersion(m.migration.CurrentVersion)))
+
+		// unlock here as we always update migration state after every operation
+		m.unlock()
 	}
 
 	if m.IsFocused() {
@@ -262,4 +275,12 @@ func (m *Model) focusAtCursor() {
 
 func (m *Model) numberOfSteps() int {
 	return len(m.migration.Steps)
+}
+
+func (m *Model) lock() bool {
+	return m.isLocked.CompareAndSwap(false, true)
+}
+
+func (m *Model) unlock() {
+	m.isLocked.Store(false)
 }
