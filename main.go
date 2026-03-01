@@ -12,29 +12,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// func main() {
-// 	m, err := migrate.New(
-// 		"file://test/migrations",
-// 		"postgres://postgres:password@localhost:5432/postgres?sslmode=disable&x-migrations-table=merchant_schema_migrations")
-// 	if err != nil {
-// 		panic(err)
-// 	}
-//
-// 	// err = m.Up()
-// 	// if err != nil {
-// 	// 	panic(err)
-// 	// }
-//
-// 	version, dirty, err := m.Version()
-// 	if err != nil {
-// 		panic(err)
-// 	}
-//
-// 	fmt.Println(version, dirty)
-//
-// 	fmt.Println("done")
-// }
-
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
