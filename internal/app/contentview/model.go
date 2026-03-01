@@ -11,7 +11,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/LiddleChild/lazymigrate/internal/app/migrationview"
+	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/components/focus"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
@@ -72,7 +72,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	)
 
 	switch msg := msg.(type) {
-	case migrationview.SelectMigrationStepMsg:
+	case appevent.SelectMigrationStepMsg:
 		m.step = msg.MigrationStep
 
 		if !m.isLoadingContent {
@@ -87,14 +87,14 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 				return nil
 			}
 
-			return updateMigrationContentMsg{
+			return appevent.UpdateMigrationContentMsg{
 				MigrationStep: msg.MigrationStep,
 			}
 		})
 
 		cmds = append(cmds, cmd)
 
-	case updateMigrationContentMsg:
+	case appevent.UpdateMigrationContentMsg:
 		if msg.MigrationStep.Up != nil {
 			buffer, err := os.ReadFile(msg.MigrationStep.Up.Path)
 			if err != nil {

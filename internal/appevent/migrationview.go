@@ -1,4 +1,4 @@
-package migrationview
+package appevent
 
 import (
 	tea "charm.land/bubbletea/v2"

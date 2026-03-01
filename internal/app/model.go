@@ -10,6 +10,7 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/app/contentview"
 	"github.com/LiddleChild/lazymigrate/internal/app/logsview"
 	"github.com/LiddleChild/lazymigrate/internal/app/migrationview"
+	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
@@ -75,14 +76,14 @@ func (m *model) Init() tea.Cmd {
 			m.contentview.Init(),
 			m.logsview.Init(),
 		),
-		updateMigrationRequestCmd,
+		appevent.UpdateMigrationRequestCmd,
 	)
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg,
-		migrationview.UpdateMigrationMsg:
+		appevent.UpdateMigrationMsg:
 
 	default:
 		spew.Fdump(log.Entry, msg)
@@ -122,27 +123,27 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 
-	case updateMigrationRequestMsg:
+	case appevent.UpdateMigrationRequestMsg:
 		migration, err := m.migrator.GetMigration()
 		if err != nil {
 			panic(err)
 		}
 
-		return m, migrationview.UpdateMigrationCmd(migration)
+		return m, appevent.UpdateMigrationCmd(migration)
 
-	case migrationview.MigrateMsg:
+	case appevent.MigrateMsg:
 		if err := m.migrator.MigrateToVersion(msg.Version); err != nil {
 			panic(err)
 		}
 
-		cmds = append(cmds, updateMigrationRequestCmd)
+		cmds = append(cmds, appevent.UpdateMigrationRequestCmd)
 
-	case migrationview.ForceMigrateMsg:
+	case appevent.ForceMigrateMsg:
 		if err := m.migrator.ForceMigrateToVersion(msg.Version); err != nil {
 			panic(err)
 		}
 
-		cmds = append(cmds, updateMigrationRequestCmd)
+		cmds = append(cmds, appevent.UpdateMigrationRequestCmd)
 	}
 
 	m.migrationview, cmd = m.migrationview.Update(msg)

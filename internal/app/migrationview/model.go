@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/components/focus"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
@@ -83,13 +84,13 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 
 		case key.Matches(msg, KeySpace):
-			cmds = append(cmds, MigrateCmd(m.GetSelectedMigrationStep().Version))
+			cmds = append(cmds, appevent.MigrateCmd(m.GetSelectedMigrationStep().Version))
 
 		case key.Matches(msg, Keyf):
-			cmds = append(cmds, ForceMigrateCmd(m.GetSelectedMigrationStep().Version))
+			cmds = append(cmds, appevent.ForceMigrateCmd(m.GetSelectedMigrationStep().Version))
 		}
 
-	case UpdateMigrationMsg:
+	case appevent.UpdateMigrationMsg:
 		m.migration = msg.Migration
 		m.migration.Steps = slices.Insert(
 			msg.Migration.Steps,
@@ -215,7 +216,7 @@ func (m *Model) SetCursor(cursor int) tea.Cmd {
 
 	m.cursor = cursor
 
-	return SelectMigrationStepCmd(m.migration.Steps[m.cursor])
+	return appevent.SelectMigrationStepCmd(m.migration.Steps[m.cursor])
 }
 
 func (m *Model) GetSelectedMigrationStep() migrator.MigrationStep {
