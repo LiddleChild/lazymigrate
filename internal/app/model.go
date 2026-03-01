@@ -77,7 +77,7 @@ func (m *model) Init() tea.Cmd {
 			m.contentview.Init(),
 			m.logsview.Init(),
 		),
-		appevent.UpdateMigrationRequestCmd,
+		brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
 	)
 }
 
@@ -127,16 +127,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appevent.UpdateMigrationRequestMsg:
 		migration, err := m.migrator.GetMigration()
 		if err != nil {
-			return m, appevent.ErrCmd(err)
+			return m, brownsugar.Cmd(appevent.NewErrMsg(err))
 		}
 
-		return m, appevent.UpdateMigrationCmd(migration)
+		return m, brownsugar.Cmd(appevent.NewUpdateMigrationMsg(migration))
 
 	case appevent.MigrateMsg:
 		cmds = append(cmds,
 			tea.Sequence(
 				m.migrateToVersionCmd(msg.Version),
-				appevent.UpdateMigrationRequestCmd,
+				brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
 			),
 		)
 
@@ -144,7 +144,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds,
 			tea.Sequence(
 				m.forceMigrateToVersionCmd(msg.Version),
-				appevent.UpdateMigrationRequestCmd,
+				brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
 			),
 		)
 	case appevent.ErrMsg:

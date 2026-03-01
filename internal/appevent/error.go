@@ -6,8 +6,8 @@ type ErrMsg struct {
 	Err error
 }
 
-func ErrCmd(err error) tea.Cmd {
-	return func() tea.Msg {
-		return &ErrMsg{Err: err}
+func NewErrMsg(err error) tea.Msg {
+	return ErrMsg{
+		Err: err,
 	}
 }

@@ -85,11 +85,11 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 
 		case key.Matches(msg, KeySpace):
-			cmds = append(cmds, appevent.MigrateCmd(m.GetSelectedMigrationStep().Version))
+			cmds = append(cmds, brownsugar.Cmd(appevent.NewMigrateMsg(m.GetSelectedMigrationStep().Version)))
 
 		case key.Matches(msg, Keyf):
 			if m.GetSelectedMigrationStep().Version > 0 {
-				cmds = append(cmds, appevent.ForceMigrateCmd(m.GetSelectedMigrationStep().Version))
+				cmds = append(cmds, brownsugar.Cmd(appevent.NewForceMigrateMsg(m.GetSelectedMigrationStep().Version)))
 			} else {
 				slog.Error("cannot force migrate to version zero")
 			}
@@ -221,7 +221,7 @@ func (m *Model) SetCursor(cursor int) tea.Cmd {
 
 	m.cursor = cursor
 
-	return appevent.SelectMigrationStepCmd(m.migration.Steps[m.cursor])
+	return brownsugar.Cmd(appevent.NewSelectMigrationStepMsg(m.migration.Steps[m.cursor]))
 }
 
 func (m *Model) GetSelectedMigrationStep() migrator.MigrationStep {

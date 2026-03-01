@@ -87,9 +87,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 				return nil
 			}
 
-			return appevent.UpdateMigrationContentMsg{
-				MigrationStep: msg.MigrationStep,
-			}
+			return appevent.NewUpdateMigrationContentMsg(msg.MigrationStep)
 		})
 
 		cmds = append(cmds, cmd)
@@ -98,7 +96,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		if msg.MigrationStep.Up != nil {
 			buffer, err := os.ReadFile(msg.MigrationStep.Up.Path)
 			if err != nil {
-				return m, appevent.ErrCmd(err)
+				return m, brownsugar.Cmd(appevent.NewErrMsg(err))
 			}
 
 			m.upContent.name = msg.MigrationStep.Up.Fullname
@@ -110,7 +108,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		if msg.MigrationStep.Down != nil {
 			buffer, err := os.ReadFile(msg.MigrationStep.Down.Path)
 			if err != nil {
-				return m, appevent.ErrCmd(err)
+				return m, brownsugar.Cmd(appevent.NewErrMsg(err))
 			}
 
 			m.downContent.name = msg.MigrationStep.Down.Fullname

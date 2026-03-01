@@ -59,7 +59,7 @@ func run() error {
 	go func() {
 		for {
 			msg := <-logDispatcher.Pull()
-			p.Send(appevent.LogMessageMsg(msg))
+			p.Send(appevent.NewLogMessageMsg(msg))
 		}
 	}()
 

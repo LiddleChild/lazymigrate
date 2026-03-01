@@ -4,6 +4,6 @@ import tea "charm.land/bubbletea/v2"
 
 type UpdateMigrationRequestMsg struct{}
 
-func UpdateMigrationRequestCmd() tea.Msg {
+func NewUpdateMigrationRequestMsg() tea.Msg {
 	return UpdateMigrationRequestMsg{}
 }
