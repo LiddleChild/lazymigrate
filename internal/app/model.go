@@ -90,10 +90,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		spew.Fdump(log.Entry, msg)
 	}
 
-	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
-	)
+	var cmd tea.Cmd
+	agg := brownsugar.CmdAggregator{}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -133,34 +131,31 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, brownsugar.Cmd(appevent.NewUpdateMigrationMsg(migration))
 
 	case appevent.MigrateMsg:
-		cmds = append(cmds,
-			tea.Sequence(
-				m.migrateToVersionCmd(msg.Version),
-				brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
-			),
-		)
+		agg.Add(tea.Sequence(
+			m.migrateToVersionCmd(msg.Version),
+			brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
+		))
 
 	case appevent.ForceMigrateMsg:
-		cmds = append(cmds,
-			tea.Sequence(
-				m.forceMigrateToVersionCmd(msg.Version),
-				brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
-			),
-		)
+		agg.Add(tea.Sequence(
+			m.forceMigrateToVersionCmd(msg.Version),
+			brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
+		))
+
 	case appevent.ErrMsg:
 		slog.Error(msg.Err.Error())
 	}
 
 	m.migrationview, cmd = m.migrationview.Update(msg)
-	cmds = append(cmds, cmd)
+	agg.Add(cmd)
 
 	m.contentview, cmd = m.contentview.Update(msg)
-	cmds = append(cmds, cmd)
+	agg.Add(cmd)
 
 	m.logsview, cmd = m.logsview.Update(msg)
-	cmds = append(cmds, cmd)
+	agg.Add(cmd)
 
-	return m, tea.Batch(cmds...)
+	return m, tea.Batch(agg...)
 }
 
 func (m *model) View() tea.View {

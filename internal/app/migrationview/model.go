@@ -57,8 +57,8 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
+		cmd tea.Cmd
+		agg brownsugar.CmdAggregator
 	)
 
 	switch msg := msg.(type) {
@@ -70,26 +70,28 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, Keyj):
 			cmd = m.SetCursor(m.cursor + 1)
-			cmds = append(cmds, cmd)
+			agg.Add(cmd)
 
 		case key.Matches(msg, Keyk):
 			cmd = m.SetCursor(m.cursor - 1)
-			cmds = append(cmds, cmd)
+			agg.Add(cmd)
 
 		case key.Matches(msg, KeyG):
 			cmd = m.SetCursor(m.numberOfSteps() - 1)
-			cmds = append(cmds, cmd)
+			agg.Add(cmd)
 
 		case key.Matches(msg, Keyg):
 			cmd = m.SetCursor(0)
-			cmds = append(cmds, cmd)
+			agg.Add(cmd)
 
 		case key.Matches(msg, KeySpace):
-			cmds = append(cmds, brownsugar.Cmd(appevent.NewMigrateMsg(m.GetSelectedMigrationStep().Version)))
+			version := m.GetSelectedMigrationStep().Version
+			agg.Add(brownsugar.Cmd(appevent.NewMigrateMsg(version)))
 
 		case key.Matches(msg, Keyf):
 			if m.GetSelectedMigrationStep().Version > 0 {
-				cmds = append(cmds, brownsugar.Cmd(appevent.NewForceMigrateMsg(m.GetSelectedMigrationStep().Version)))
+				version := m.GetSelectedMigrationStep().Version
+				agg.Add(brownsugar.Cmd(appevent.NewForceMigrateMsg(version)))
 			} else {
 				slog.Error("cannot force migrate to version zero")
 			}
@@ -106,16 +108,15 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			},
 		)
 
-		cmd = m.SetCursor(m.indexOfVersion(m.migration.CurrentVersion))
-		cmds = append(cmds, cmd)
+		agg.Add(m.SetCursor(m.indexOfVersion(m.migration.CurrentVersion)))
 	}
 
 	if m.IsFocused() {
 		m.viewport, cmd = m.viewport.Update(msg)
-		cmds = append(cmds, cmd)
+		agg.Add(cmd)
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, tea.Batch(agg...)
 }
 
 func (m *Model) Render(ctx brownsugar.RenderContext) string {

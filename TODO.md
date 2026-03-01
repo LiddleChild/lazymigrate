@@ -5,6 +5,4 @@ features
 - lock ui when performing db operations
 
 refactors
-- optimize lipgloss.NewStyle() in rendering loop
 - view orchestrator
-- cmds aggregator

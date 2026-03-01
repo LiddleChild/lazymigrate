@@ -67,8 +67,8 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
+		cmd tea.Cmd
+		agg brownsugar.CmdAggregator
 	)
 
 	switch msg := msg.(type) {
@@ -76,11 +76,11 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		m.step = msg.MigrationStep
 
 		if !m.isLoadingContent {
-			cmds = append(cmds, m.spinner.Tick)
+			agg.Add(m.spinner.Tick)
 		}
 		m.isLoadingContent = true
 
-		cmd = tea.Tick(250*time.Millisecond, func(t time.Time) tea.Msg {
+		agg.Add(tea.Tick(250*time.Millisecond, func(t time.Time) tea.Msg {
 			// cursor is copied into closure (old value)
 			// if current value mismatched with old value, debounce
 			if m.step != msg.MigrationStep {
@@ -88,9 +88,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			}
 
 			return appevent.NewUpdateMigrationContentMsg(msg.MigrationStep)
-		})
-
-		cmds = append(cmds, cmd)
+		}))
 
 	case appevent.UpdateMigrationContentMsg:
 		if msg.MigrationStep.Up != nil {
@@ -131,10 +129,10 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 
 	if m.IsFocused() {
 		m.viewport, cmd = m.viewport.Update(msg)
-		cmds = append(cmds, cmd)
+		agg.Add(cmd)
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, tea.Batch(agg...)
 }
 
 func (m *Model) Render(ctx brownsugar.RenderContext) string {

@@ -7,3 +7,10 @@ func Cmd(msg tea.Msg) tea.Cmd {
 		return msg
 	}
 }
+
+type CmdAggregator []tea.Cmd
+
+func (a *CmdAggregator) Add(cmd tea.Cmd) *CmdAggregator {
+	*a = append(*a, cmd)
+	return a
+}
