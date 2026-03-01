@@ -103,9 +103,21 @@ func (m *Model) renderMessage(msg log.Message) string {
 			Render("ERROR")
 	}
 
+	sMsg := msg.Message
+	if msg.Secondary {
+		sMsg = lipgloss.NewStyle().
+			Foreground(brownsugar.ColorWhite).
+			Render(msg.Message)
+	} else {
+		sMsg = lipgloss.NewStyle().
+			Foreground(brownsugar.ColorBrightWhite).
+			Bold(true).
+			Render(msg.Message)
+	}
+
 	return strings.Join([]string{
 		sTime,
 		sLevel,
-		msg.Message,
+		sMsg,
 	}, " ")
 }

@@ -2,6 +2,7 @@ package migrator
 
 import (
 	"errors"
+	"log/slog"
 
 	"github.com/golang-migrate/migrate/v4"
 )
@@ -35,6 +36,8 @@ func (conn *client) Reconnect() error {
 		return err
 	}
 
+	slog.Info("Connection closed")
+
 	return conn.Connect()
 }
 
@@ -42,6 +45,8 @@ func (conn *client) Connect() error {
 	var err error
 	conn.Migrate, err = migrate.New(conn.sourceURL, conn.databaseURL)
 	conn.Migrate.Log = newMigrateLogger(conn.verbose)
+
+	slog.Info("Connected")
 
 	return err
 }

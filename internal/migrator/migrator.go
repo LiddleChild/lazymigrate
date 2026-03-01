@@ -3,6 +3,7 @@ package migrator
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	gopath "path"
 	"slices"
@@ -71,15 +72,29 @@ func (m *Migrator) GetMigrationState() (uint, bool, error) {
 		return 0, false, m.handleError(err)
 	}
 
+	slog.Info("Fetched current migration state")
+
 	return currentVersion, isDirty, nil
 }
 
 func (m *Migrator) MigrateToVersion(version uint) error {
-	return m.handleError(m.client.Steps(int(version) - int(m.currentVersion)))
+	if err := m.client.Steps(int(version) - int(m.currentVersion)); err != nil {
+		return m.handleError(err)
+	}
+
+	slog.Info(fmt.Sprintf("Migrated to version %d", version))
+
+	return nil
 }
 
 func (m *Migrator) ForceMigrateToVersion(version uint) error {
-	return m.handleError(m.client.Force(int(version)))
+	if err := m.client.Force(int(version)); err != nil {
+		return m.handleError(err)
+	}
+
+	slog.Info(fmt.Sprintf("Forced to version %d", version))
+
+	return nil
 }
 
 func (m *Migrator) fetchMigrations() ([]MigrationStep, error) {

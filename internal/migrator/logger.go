@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/golang-migrate/migrate/v4"
 )
 
@@ -29,7 +30,14 @@ func (l *migrateLogger) Printf(format string, v ...any) {
 		level = slog.LevelError
 	}
 
-	slog.Log(context.Background(), level, strings.TrimSpace(msg))
+	slog.Log(
+		context.Background(),
+		level,
+		strings.TrimSpace(msg),
+		log.Attribute(
+			log.AttributeSecondary(),
+		),
+	)
 }
 
 func (l *migrateLogger) Verbose() bool {

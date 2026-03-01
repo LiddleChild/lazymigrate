@@ -49,14 +49,18 @@ func (d *LogDispatcher) handle() {
 			Time  time.Time `json:"time"`
 			Level LogLevel  `json:"level"`
 			Msg   string    `json:"msg"`
+			Attrs struct {
+				Secondary bool `json:"secondary"`
+			} `json:"attributes"`
 		}
 
 		_ = d.decoder.Decode(&msg)
 
 		d.ch <- Message{
-			Time:    msg.Time,
-			Level:   msg.Level,
-			Message: msg.Msg,
+			Time:      msg.Time,
+			Level:     msg.Level,
+			Message:   msg.Msg,
+			Secondary: msg.Attrs.Secondary,
 		}
 	}
 }

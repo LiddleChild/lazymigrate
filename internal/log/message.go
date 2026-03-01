@@ -14,7 +14,8 @@ const (
 )
 
 type Message struct {
-	Time    time.Time
-	Level   LogLevel
-	Message string
+	Time      time.Time
+	Level     LogLevel
+	Message   string
+	Secondary bool
 }
