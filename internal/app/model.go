@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/contentview"
+	"github.com/LiddleChild/lazymigrate/internal/app/logsview"
 	"github.com/LiddleChild/lazymigrate/internal/app/migrationview"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/log"
@@ -45,6 +46,7 @@ type model struct {
 
 	migrationview *migrationview.Model
 	contentview   *contentview.Model
+	logsview      *logsview.Model
 }
 
 func New(migrator *migrator.Migrator) tea.Model {
@@ -53,6 +55,8 @@ func New(migrator *migrator.Migrator) tea.Model {
 
 	contentview := contentview.New()
 
+	logsview := logsview.New()
+
 	return &model{
 		migrator:      migrator,
 		focusedPane:   FocusPaneMigration,
@@ -60,6 +64,7 @@ func New(migrator *migrator.Migrator) tea.Model {
 		height:        0,
 		migrationview: migrationview,
 		contentview:   contentview,
+		logsview:      logsview,
 	}
 }
 
@@ -68,6 +73,7 @@ func (m *model) Init() tea.Cmd {
 		tea.Batch(
 			m.migrationview.Init(),
 			m.contentview.Init(),
+			m.logsview.Init(),
 		),
 		updateMigrationRequestCmd,
 	)
@@ -145,6 +151,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.contentview, cmd = m.contentview.Update(msg)
 	cmds = append(cmds, cmd)
 
+	m.logsview, cmd = m.logsview.Update(msg)
+	cmds = append(cmds, cmd)
+
 	return m, tea.Batch(cmds...)
 }
 
@@ -189,7 +198,10 @@ func (m *model) View() tea.View {
 					}),
 				),
 			),
-			bottomPane.Render("Logs"),
+			m.logsview.Render(brownsugar.RenderContext{
+				Width:  bottomPane.GetWidth(),
+				Height: bottomPane.GetHeight(),
+			}),
 		),
 	}
 }
