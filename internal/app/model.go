@@ -1,6 +1,7 @@
 package app
 
 import (
+	"log/slog"
 	"math"
 
 	"charm.land/bubbles/v2/key"
@@ -39,11 +40,11 @@ var (
 var _ tea.Model = (*model)(nil)
 
 type model struct {
-	migrator    *migrator.Migrator
-	focusedPane FocusedPane
+	migrator *migrator.Migrator
 
-	width  int
-	height int
+	width       int
+	height      int
+	focusedPane FocusedPane
 
 	migrationview *migrationview.Model
 	contentview   *contentview.Model
@@ -60,9 +61,9 @@ func New(migrator *migrator.Migrator) tea.Model {
 
 	return &model{
 		migrator:      migrator,
-		focusedPane:   FocusPaneMigration,
 		width:         0,
 		height:        0,
+		focusedPane:   FocusPaneMigration,
 		migrationview: migrationview,
 		contentview:   contentview,
 		logsview:      logsview,
@@ -126,24 +127,28 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appevent.UpdateMigrationRequestMsg:
 		migration, err := m.migrator.GetMigration()
 		if err != nil {
-			panic(err)
+			return m, appevent.ErrCmd(err)
 		}
 
 		return m, appevent.UpdateMigrationCmd(migration)
 
 	case appevent.MigrateMsg:
-		if err := m.migrator.MigrateToVersion(msg.Version); err != nil {
-			panic(err)
-		}
-
-		cmds = append(cmds, appevent.UpdateMigrationRequestCmd)
+		cmds = append(cmds,
+			tea.Sequence(
+				m.migrateToVersionCmd(msg.Version),
+				appevent.UpdateMigrationRequestCmd,
+			),
+		)
 
 	case appevent.ForceMigrateMsg:
-		if err := m.migrator.ForceMigrateToVersion(msg.Version); err != nil {
-			panic(err)
-		}
-
-		cmds = append(cmds, appevent.UpdateMigrationRequestCmd)
+		cmds = append(cmds,
+			tea.Sequence(
+				m.forceMigrateToVersionCmd(msg.Version),
+				appevent.UpdateMigrationRequestCmd,
+			),
+		)
+	case appevent.ErrMsg:
+		slog.Error(msg.Err.Error())
 	}
 
 	m.migrationview, cmd = m.migrationview.Update(msg)
@@ -204,5 +209,25 @@ func (m *model) View() tea.View {
 				Height: bottomPane.GetHeight(),
 			}),
 		),
+	}
+}
+
+func (m *model) migrateToVersionCmd(version uint) tea.Cmd {
+	return func() tea.Msg {
+		if err := m.migrator.MigrateToVersion(version); err != nil {
+			return appevent.ErrMsg{Err: err}
+		}
+
+		return nil
+	}
+}
+
+func (m *model) forceMigrateToVersionCmd(version uint) tea.Cmd {
+	return func() tea.Msg {
+		if err := m.migrator.ForceMigrateToVersion(version); err != nil {
+			return appevent.ErrMsg{Err: err}
+		}
+
+		return nil
 	}
 }

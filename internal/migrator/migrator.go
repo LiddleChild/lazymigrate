@@ -14,21 +14,27 @@ import (
 )
 
 type Migrator struct {
-	client     *migrate.Migrate
-	sourcePath string
-	migration  *Migration
+	client *client
+
+	path           string
+	currentVersion uint
+	isDirty        bool
 }
 
-func Open(path, database string) (*Migrator, error) {
+func Open(path string, database string, verbose bool) (*Migrator, error) {
 	sourceURL := fmt.Sprintf("file://%s", path)
-	client, err := migrate.New(sourceURL, database)
+	client, err := newClient(sourceURL, database)
 	if err != nil {
 		return nil, err
 	}
 
+	client.Log = newMigrateLogger(verbose)
+
 	return &Migrator{
-		sourcePath: path,
-		client:     client,
+		client:         client,
+		path:           path,
+		currentVersion: 0,
+		isDirty:        false,
 	}, nil
 }
 
@@ -37,48 +43,60 @@ func (m *Migrator) Stop() {
 }
 
 func (m *Migrator) GetMigration() (*Migration, error) {
-	migration, err := m.refreshMigration()
+	currentVersion, isDirty, err := m.GetMigrationState()
 	if err != nil {
 		return nil, err
 	}
 
-	m.migration = migration
+	steps, err := m.fetchMigrations()
+	if err != nil {
+		return nil, err
+	}
 
-	return migration, nil
+	m.currentVersion = currentVersion
+	m.isDirty = isDirty
+
+	return &Migration{
+		Steps:          steps,
+		CurrentVersion: currentVersion,
+		IsDirty:        isDirty,
+	}, nil
 }
 
-func (m *Migrator) MigrateToVersion(version uint) error {
-	return m.client.Steps(int(version) - int(m.migration.CurrentVersion))
-}
-
-func (m *Migrator) ForceMigrateToVersion(version uint) error {
-	return m.client.Force(int(version))
-}
-
-func (m *Migrator) refreshMigration() (*Migration, error) {
-	var (
-		currentVersion uint
-		isDirty        bool
-	)
-
+func (m *Migrator) GetMigrationState() (uint, bool, error) {
 	currentVersion, isDirty, err := m.client.Version()
 	switch {
 	case errors.Is(err, migrate.ErrNilVersion):
 		currentVersion = 0
 		isDirty = false
 	case err != nil:
-		return nil, err
+		return 0, false, m.handleError(err)
 	}
 
+	return currentVersion, isDirty, nil
+}
+
+func (m *Migrator) MigrateToVersion(version uint) error {
+	return m.handleError(m.client.Steps(int(version) - int(m.currentVersion)))
+}
+
+func (m *Migrator) ForceMigrateToVersion(version uint) error {
+	return m.handleError(m.client.Force(int(version)))
+}
+
+func (m *Migrator) fetchMigrations() ([]MigrationStep, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 
-	f, err := os.Open(m.sourcePath)
+	f, err := os.Open(m.path)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		_ = f.Close()
+	}()
 
 	entries, err := f.ReadDir(0)
 	if err != nil {
@@ -104,7 +122,7 @@ func (m *Migrator) refreshMigration() (*Migration, error) {
 
 		stepDirection := &MigrationStepDirection{
 			Fullname: migration.Raw,
-			Path:     gopath.Join(wd, m.sourcePath, migration.Raw),
+			Path:     gopath.Join(wd, m.path, migration.Raw),
 		}
 
 		switch migration.Direction {
@@ -126,9 +144,13 @@ func (m *Migrator) refreshMigration() (*Migration, error) {
 		return int(a.Version) - int(b.Version)
 	})
 
-	return &Migration{
-		Steps:          steps,
-		CurrentVersion: currentVersion,
-		IsDirty:        isDirty,
-	}, nil
+	return steps, nil
+}
+
+func (m *Migrator) handleError(err error) error {
+	if err := m.client.Reconnect(); err != nil {
+		return err
+	}
+
+	return err
 }

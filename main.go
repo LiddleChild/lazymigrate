@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/LiddleChild/lazymigrate/internal/app"
+	"github.com/LiddleChild/lazymigrate/internal/appevent"
+	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 	"github.com/LiddleChild/lazymigrate/internal/runconfig"
 	"github.com/LiddleChild/lazymigrate/internal/validator"
@@ -27,14 +30,40 @@ func run() error {
 		return err
 	}
 
-	m, err := migrator.Open(cfg.Path, cfg.Database)
+	if err := log.Initialize(cfg.IsDebug); err != nil {
+		return err
+	}
+
+	logDispatcher := log.NewLogDispatcher()
+
+	var handlerOpt slog.HandlerOptions
+	if cfg.IsDebug {
+		handlerOpt.Level = slog.LevelDebug
+	}
+
+	slog.SetDefault(
+		slog.New(slog.NewMultiHandler(
+			slog.NewTextHandler(log.Entry, &handlerOpt),
+			logDispatcher.Handler(),
+		)),
+	)
+
+	migrator, err := migrator.Open(cfg.Path, cfg.Database, cfg.IsVerbose)
 	if err != nil {
 		return err
 	}
 
-	app := app.New(m)
+	app := app.New(migrator)
+	p := tea.NewProgram(app)
 
-	if _, err := tea.NewProgram(app).Run(); err != nil {
+	go func() {
+		for {
+			msg := <-logDispatcher.Pull()
+			p.Send(appevent.LogMessageMsg(msg))
+		}
+	}()
+
+	if _, err := p.Run(); err != nil {
 		return err
 	}
 

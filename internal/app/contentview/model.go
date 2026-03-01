@@ -98,7 +98,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		if msg.MigrationStep.Up != nil {
 			buffer, err := os.ReadFile(msg.MigrationStep.Up.Path)
 			if err != nil {
-				panic(err)
+				return m, appevent.ErrCmd(err)
 			}
 
 			m.upContent.name = msg.MigrationStep.Up.Fullname
@@ -110,7 +110,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		if msg.MigrationStep.Down != nil {
 			buffer, err := os.ReadFile(msg.MigrationStep.Down.Path)
 			if err != nil {
-				panic(err)
+				return m, appevent.ErrCmd(err)
 			}
 
 			m.downContent.name = msg.MigrationStep.Down.Fullname
