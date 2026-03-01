@@ -11,19 +11,22 @@ type client struct {
 
 	sourceURL   string
 	databaseURL string
+	verbose     bool
 }
 
-func newClient(sourceURL, databaseURL string) (*client, error) {
-	migrate, err := migrate.New(sourceURL, databaseURL)
-	if err != nil {
+func newClient(sourceURL, databaseURL string, verbose bool) (*client, error) {
+	cli := &client{
+		Migrate:     nil,
+		sourceURL:   sourceURL,
+		databaseURL: databaseURL,
+		verbose:     verbose,
+	}
+
+	if err := cli.Connect(); err != nil {
 		return nil, err
 	}
 
-	return &client{
-		Migrate:     migrate,
-		sourceURL:   sourceURL,
-		databaseURL: databaseURL,
-	}, nil
+	return cli, nil
 }
 
 func (conn *client) Reconnect() error {
@@ -32,7 +35,13 @@ func (conn *client) Reconnect() error {
 		return err
 	}
 
+	return conn.Connect()
+}
+
+func (conn *client) Connect() error {
 	var err error
 	conn.Migrate, err = migrate.New(conn.sourceURL, conn.databaseURL)
+	conn.Migrate.Log = newMigrateLogger(conn.verbose)
+
 	return err
 }

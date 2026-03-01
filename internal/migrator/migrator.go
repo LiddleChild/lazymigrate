@@ -23,12 +23,10 @@ type Migrator struct {
 
 func Open(path string, database string, verbose bool) (*Migrator, error) {
 	sourceURL := fmt.Sprintf("file://%s", path)
-	client, err := newClient(sourceURL, database)
+	client, err := newClient(sourceURL, database, verbose)
 	if err != nil {
 		return nil, err
 	}
-
-	client.Log = newMigrateLogger(verbose)
 
 	return &Migrator{
 		client:         client,
@@ -148,8 +146,10 @@ func (m *Migrator) fetchMigrations() ([]MigrationStep, error) {
 }
 
 func (m *Migrator) handleError(err error) error {
-	if err := m.client.Reconnect(); err != nil {
-		return err
+	if err != nil {
+		if err := m.client.Reconnect(); err != nil {
+			return err
+		}
 	}
 
 	return err
