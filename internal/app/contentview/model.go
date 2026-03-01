@@ -13,7 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/migrationview"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
-	"github.com/LiddleChild/lazymigrate/internal/componenets/focus"
+	"github.com/LiddleChild/lazymigrate/internal/components/focus"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 )
 
