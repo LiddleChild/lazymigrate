@@ -16,6 +16,7 @@ import (
 type Migrator struct {
 	client     *migrate.Migrate
 	sourcePath string
+	migration  *Migration
 }
 
 func Open(path, database string) (*Migrator, error) {
@@ -36,6 +37,25 @@ func (m *Migrator) Stop() {
 }
 
 func (m *Migrator) GetMigration() (*Migration, error) {
+	migration, err := m.refreshMigration()
+	if err != nil {
+		return nil, err
+	}
+
+	m.migration = migration
+
+	return migration, nil
+}
+
+func (m *Migrator) MigrateToVersion(version uint) error {
+	return m.client.Steps(int(version) - int(m.migration.CurrentVersion))
+}
+
+func (m *Migrator) ForceMigrateToVersion(version uint) error {
+	return m.client.Force(int(version))
+}
+
+func (m *Migrator) refreshMigration() (*Migration, error) {
 	var (
 		currentVersion uint
 		isDirty        bool
@@ -111,12 +131,4 @@ func (m *Migrator) GetMigration() (*Migration, error) {
 		CurrentVersion: currentVersion,
 		IsDirty:        isDirty,
 	}, nil
-}
-
-func (m *Migrator) Migrate(version uint) error {
-	return m.client.Migrate(version)
-}
-
-func (m *Migrator) ForceMigrate(version uint) error {
-	return m.client.Force(int(version))
 }

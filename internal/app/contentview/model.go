@@ -158,6 +158,7 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 		Foreground(brownsugar.ColorBlack).
 		Background(brownsugar.ColorBrightWhite)
 
+	// TODO: properly render zero step
 	if m.isLoadingContent {
 		m.viewport.SetContent(spinner)
 	} else {

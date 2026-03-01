@@ -125,14 +125,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, migrationview.UpdateMigrationCmd(migration)
 
 	case migrationview.MigrateMsg:
-		if err := m.migrator.Migrate(msg.Version); err != nil {
+		if err := m.migrator.MigrateToVersion(msg.Version); err != nil {
 			panic(err)
 		}
 
 		cmds = append(cmds, updateMigrationRequestCmd)
 
 	case migrationview.ForceMigrateMsg:
-		if err := m.migrator.ForceMigrate(msg.Version); err != nil {
+		if err := m.migrator.ForceMigrateToVersion(msg.Version); err != nil {
 			panic(err)
 		}
 
