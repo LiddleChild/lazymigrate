@@ -2,6 +2,7 @@ package migrationview
 
 import (
 	"fmt"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -87,7 +88,11 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			cmds = append(cmds, appevent.MigrateCmd(m.GetSelectedMigrationStep().Version))
 
 		case key.Matches(msg, Keyf):
-			cmds = append(cmds, appevent.ForceMigrateCmd(m.GetSelectedMigrationStep().Version))
+			if m.GetSelectedMigrationStep().Version > 0 {
+				cmds = append(cmds, appevent.ForceMigrateCmd(m.GetSelectedMigrationStep().Version))
+			} else {
+				slog.Error("cannot force migrate to version zero")
+			}
 		}
 
 	case appevent.UpdateMigrationMsg:
