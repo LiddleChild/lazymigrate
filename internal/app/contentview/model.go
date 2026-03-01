@@ -34,6 +34,7 @@ type Model struct {
 
 	step             migrator.MigrationStep
 	isLoadingContent bool
+	isZeroVersion    bool
 
 	upContent   content
 	downContent content
@@ -52,6 +53,7 @@ func New() *Model {
 		Model:            focus.New(),
 		step:             migrator.MigrationStep{},
 		isLoadingContent: true,
+		isZeroVersion:    false,
 		upContent:        content{},
 		downContent:      content{},
 		viewport:         viewport,
@@ -117,6 +119,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			m.downContent = content{}
 		}
 
+		m.isZeroVersion = msg.MigrationStep.Version == 0
 		m.isLoadingContent = false
 
 	case spinner.TickMsg:
@@ -158,10 +161,14 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 		Foreground(brownsugar.ColorBlack).
 		Background(brownsugar.ColorBrightWhite)
 
-	// TODO: properly render zero step
-	if m.isLoadingContent {
+	switch {
+	case m.isLoadingContent:
 		m.viewport.SetContent(spinner)
-	} else {
+
+	case !m.isLoadingContent && m.isZeroVersion:
+		m.viewport.SetContent("")
+
+	case !m.isLoadingContent && !m.isZeroVersion:
 		m.viewport.SetContent(
 			lipgloss.JoinVertical(lipgloss.Top,
 				filename.Render(m.upContent.name),
