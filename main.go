@@ -57,8 +57,7 @@ func run() error {
 	p := tea.NewProgram(app)
 
 	go func() {
-		for {
-			msg := <-logDispatcher.Pull()
+		for msg := range logDispatcher.Pull() {
 			p.Send(appevent.NewLogMessageMsg(msg))
 		}
 	}()
