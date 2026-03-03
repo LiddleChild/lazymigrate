@@ -233,9 +233,12 @@ func (m *Model) SetCursor(cursor int) tea.Cmd {
 		cursor = m.numberOfSteps() - 1
 	}
 
-	m.cursor = cursor
+	if m.cursor != cursor {
+		m.cursor = cursor
+		return brownsugar.Cmd(appevent.NewSelectMigrationStepMsg(m.migration.Steps[m.cursor]))
+	}
 
-	return brownsugar.Cmd(appevent.NewSelectMigrationStepMsg(m.migration.Steps[m.cursor]))
+	return nil
 }
 
 func (m *Model) GetSelectedMigrationStep() migrator.MigrationStep {
