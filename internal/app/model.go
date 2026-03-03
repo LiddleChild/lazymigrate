@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"math"
 
+	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -11,7 +12,9 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/app/contentview"
 	"github.com/LiddleChild/lazymigrate/internal/app/logsview"
 	"github.com/LiddleChild/lazymigrate/internal/app/migrationview"
+	"github.com/LiddleChild/lazymigrate/internal/app/newmigrationview"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
+	"github.com/LiddleChild/lazymigrate/internal/appscene"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
@@ -35,6 +38,7 @@ var (
 	KeyCtrlC = key.NewBinding(key.WithKeys("ctrl+c"))
 	KeyEnter = key.NewBinding(key.WithKeys("enter"))
 	KeyEsc   = key.NewBinding(key.WithKeys("esc"))
+	Keyn     = key.NewBinding(key.WithKeys("n"))
 )
 
 var _ tea.Model = (*model)(nil)
@@ -45,10 +49,12 @@ type model struct {
 	width       int
 	height      int
 	focusedPane FocusedPane
+	scene       appscene.Scene
 
-	migrationview *migrationview.Model
-	contentview   *contentview.Model
-	logsview      *logsview.Model
+	migrationview    *migrationview.Model
+	contentview      *contentview.Model
+	logsview         *logsview.Model
+	newmigrationview *newmigrationview.Model
 }
 
 func New(migrator *migrator.Migrator) tea.Model {
@@ -59,14 +65,18 @@ func New(migrator *migrator.Migrator) tea.Model {
 
 	logsview := logsview.New()
 
+	newmigrationview := newmigrationview.New()
+
 	return &model{
-		migrator:      migrator,
-		width:         0,
-		height:        0,
-		focusedPane:   FocusPaneMigration,
-		migrationview: migrationview,
-		contentview:   contentview,
-		logsview:      logsview,
+		migrator:         migrator,
+		width:            0,
+		height:           0,
+		focusedPane:      FocusPaneMigration,
+		scene:            appscene.SceneHome,
+		migrationview:    migrationview,
+		contentview:      contentview,
+		logsview:         logsview,
+		newmigrationview: newmigrationview,
 	}
 }
 
@@ -84,6 +94,8 @@ func (m *model) Init() tea.Cmd {
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg,
+		tea.KeyPressMsg,
+		cursor.BlinkMsg,
 		appevent.UpdateMigrationMsg:
 
 	default:
@@ -100,22 +112,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.migrator.Stop()
 			return m, tea.Quit
 
-		case key.Matches(msg, KeyEnter):
+		case m.scene == appscene.SceneHome && key.Matches(msg, KeyEnter):
 			m.focusedPane = FocusPaneContent
+			m.updateFocusedPane()
 
-		case key.Matches(msg, KeyEsc):
+		case m.scene == appscene.SceneHome && key.Matches(msg, KeyEsc):
 			m.focusedPane = FocusPaneMigration
-		}
+			m.updateFocusedPane()
 
-		m.migrationview.Blur()
-		m.contentview.Blur()
-
-		switch m.focusedPane {
-		case FocusPaneMigration:
-			m.migrationview.Focus()
-
-		case FocusPaneContent:
-			m.contentview.Focus()
+		case m.scene == appscene.SceneHome && key.Matches(msg, Keyn):
+			return m, brownsugar.Cmd(appevent.NewSwitchSceneMsg(appscene.SceneNewMigration))
 		}
 
 	case tea.WindowSizeMsg:
@@ -142,15 +148,37 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
 		))
 
+	case appevent.CreateMigrationMsg:
+		if err := m.migrator.CreateMigration(msg.Name); err != nil {
+			return m, brownsugar.Cmd(appevent.NewErrMsg(err))
+		}
+
+		return m, tea.Sequence(
+			brownsugar.Cmd(appevent.NewMigrationCreatedMsg()),
+			brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
+		)
+
+	case appevent.SwitchSceneMsg:
+		m.scene = msg.Scene
+		return m, nil
+
 	case appevent.ErrMsg:
 		slog.Error(msg.Err.Error())
+		return m, nil
 	}
 
-	m.migrationview, cmd = m.migrationview.Update(msg)
-	agg.Add(cmd)
+	switch m.scene {
+	case appscene.SceneHome:
+		m.migrationview, cmd = m.migrationview.Update(msg)
+		agg.Add(cmd)
 
-	m.contentview, cmd = m.contentview.Update(msg)
-	agg.Add(cmd)
+		m.contentview, cmd = m.contentview.Update(msg)
+		agg.Add(cmd)
+
+	case appscene.SceneNewMigration:
+		m.newmigrationview, cmd = m.newmigrationview.Update(msg)
+		agg.Add(cmd)
+	}
 
 	m.logsview, cmd = m.logsview.Update(msg)
 	agg.Add(cmd)
@@ -187,17 +215,29 @@ func (m *model) View() tea.View {
 	return tea.View{
 		AltScreen: true,
 		Content: lipgloss.JoinVertical(lipgloss.Top,
-			top.Render(
-				lipgloss.JoinHorizontal(lipgloss.Left,
-					m.migrationview.Render(brownsugar.RenderContext{
-						Width:  migrationPane.GetWidth(),
-						Height: migrationPane.GetHeight(),
-					}),
-					m.contentview.Render(brownsugar.RenderContext{
-						Width:  contentPane.GetWidth(),
-						Height: contentPane.GetHeight(),
-					}),
-				),
+			brownsugar.RenderWithCondition(m.scene == appscene.SceneNewMigration,
+				func() string {
+					return m.newmigrationview.Render(brownsugar.RenderContext{
+						Width:  top.GetWidth(),
+						Height: top.GetHeight(),
+					})
+				},
+			),
+			brownsugar.RenderWithCondition(m.scene == appscene.SceneHome,
+				func() string {
+					return top.Render(
+						lipgloss.JoinHorizontal(lipgloss.Left,
+							m.migrationview.Render(brownsugar.RenderContext{
+								Width:  migrationPane.GetWidth(),
+								Height: migrationPane.GetHeight(),
+							}),
+							m.contentview.Render(brownsugar.RenderContext{
+								Width:  contentPane.GetWidth(),
+								Height: contentPane.GetHeight(),
+							}),
+						),
+					)
+				},
 			),
 			m.logsview.Render(brownsugar.RenderContext{
 				Width:  bottomPane.GetWidth(),
@@ -224,5 +264,18 @@ func (m *model) forceMigrateToVersionCmd(version uint) tea.Cmd {
 		}
 
 		return nil
+	}
+}
+
+func (m *model) updateFocusedPane() {
+	m.migrationview.Blur()
+	m.contentview.Blur()
+
+	switch m.focusedPane {
+	case FocusPaneMigration:
+		m.migrationview.Focus()
+
+	case FocusPaneContent:
+		m.contentview.Focus()
 	}
 }

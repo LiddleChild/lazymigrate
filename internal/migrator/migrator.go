@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path"
 	gopath "path"
 	"slices"
 
@@ -17,9 +18,8 @@ import (
 type Migrator struct {
 	client *client
 
-	path           string
-	currentVersion uint
-	isDirty        bool
+	path      string
+	migration *Migration
 }
 
 func Open(path string, database string, verbose bool) (*Migrator, error) {
@@ -30,10 +30,9 @@ func Open(path string, database string, verbose bool) (*Migrator, error) {
 	}
 
 	return &Migrator{
-		client:         client,
-		path:           path,
-		currentVersion: 0,
-		isDirty:        false,
+		client:    client,
+		path:      path,
+		migration: nil,
 	}, nil
 }
 
@@ -52,14 +51,13 @@ func (m *Migrator) GetMigration() (*Migration, error) {
 		return nil, err
 	}
 
-	m.currentVersion = currentVersion
-	m.isDirty = isDirty
-
-	return &Migration{
+	m.migration = &Migration{
 		Steps:          steps,
 		CurrentVersion: currentVersion,
 		IsDirty:        isDirty,
-	}, nil
+	}
+
+	return m.migration, nil
 }
 
 func (m *Migrator) GetMigrationState() (uint, bool, error) {
@@ -78,7 +76,7 @@ func (m *Migrator) GetMigrationState() (uint, bool, error) {
 }
 
 func (m *Migrator) MigrateToVersion(version uint) error {
-	if err := m.client.Steps(int(version) - int(m.currentVersion)); err != nil {
+	if err := m.client.Steps(int(version) - int(m.migration.CurrentVersion)); err != nil {
 		return m.handleError(err)
 	}
 
@@ -93,6 +91,33 @@ func (m *Migrator) ForceMigrateToVersion(version uint) error {
 	}
 
 	slog.Info(fmt.Sprintf("Forced to version %d", version))
+
+	return nil
+}
+
+func (m *Migrator) CreateMigration(name string) error {
+	var version uint = 1
+
+	if len(m.migration.Steps)-1 > 0 {
+		version = m.migration.Steps[len(m.migration.Steps)-1].Version
+		version++
+	}
+
+	for _, direction := range []string{"up", "down"} {
+		filename := fmt.Sprintf("%06d_%s.%s.sql", version, name, direction)
+
+		// same to migrate
+		f, err := os.OpenFile(path.Join(m.path, filename), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+		if err != nil {
+			return err
+		}
+
+		if err := f.Close(); err != nil {
+			return err
+		}
+	}
+
+	slog.Info(fmt.Sprintf(`Created migration version %d "%s"`, version, name))
 
 	return nil
 }
