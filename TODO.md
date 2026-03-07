@@ -1,9 +1,10 @@
 features
 - help menu
     - properly handle keys
-- migration state where it knows if the step is forced to or actually run
+- save applied migration state to file
 - support config file in yaml for multiple sources
 - change migration version
+- syntax highlight sql
 
 refactors
 - view orchestrator

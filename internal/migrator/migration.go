@@ -1,14 +1,16 @@
 package migrator
 
 type Migration struct {
-	Steps          []MigrationStep
-	CurrentVersion uint
-	IsDirty        bool
+	Steps            []MigrationStep
+	AppliedMigration map[Signature]MigrationStep
+	CurrentVersion   uint
+	IsDirty          bool
 }
 
 type MigrationStep struct {
 	Version    uint
 	Identifier string
+	Signature  Signature
 
 	Up   *MigrationStepDirection
 	Down *MigrationStepDirection

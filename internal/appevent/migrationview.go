@@ -5,14 +5,10 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 )
 
-type UpdateMigrationMsg struct {
-	Migration *migrator.Migration
-}
+type UpdateMigrationMsg *migrator.Migration
 
 func NewUpdateMigrationMsg(migration *migrator.Migration) tea.Msg {
-	return UpdateMigrationMsg{
-		Migration: migration,
-	}
+	return UpdateMigrationMsg(migration)
 }
 
 type SelectMigrationStepMsg struct {

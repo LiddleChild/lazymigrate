@@ -15,7 +15,6 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/components/focus"
-	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 )
 
@@ -31,7 +30,7 @@ var (
 type Model struct {
 	focus.Model
 
-	migration *migrator.Migration
+	migration migrator.Migration
 	cursor    int
 	isLocked  *atomic.Bool
 
@@ -48,7 +47,7 @@ func New() *Model {
 
 	return &Model{
 		Model: focus.New(),
-		migration: &migrator.Migration{
+		migration: migrator.Migration{
 			Steps:          make([]migrator.MigrationStep, 0),
 			CurrentVersion: 0,
 			IsDirty:        false,
@@ -93,8 +92,6 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			agg.Add(cmd)
 
 		case key.Matches(msg, KeySpace) && m.lock():
-			fmt.Fprintln(log.Entry, "got lock")
-
 			version := m.GetSelectedMigrationStep().Version
 			agg.Add(brownsugar.Cmd(appevent.NewMigrateMsg(version)))
 
@@ -108,15 +105,19 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 
 	case appevent.UpdateMigrationMsg:
-		m.migration = msg.Migration
-		m.migration.Steps = slices.Insert(
-			msg.Migration.Steps,
-			0,
-			migrator.MigrationStep{
+		steps := append([]migrator.MigrationStep{
+			{
 				Version:    0,
 				Identifier: "ROOT (no migration applied)",
 			},
-		)
+		}, msg.Steps...)
+
+		m.migration = migrator.Migration{
+			Steps:            steps,
+			AppliedMigration: msg.AppliedMigration,
+			CurrentVersion:   msg.CurrentVersion,
+			IsDirty:          msg.IsDirty,
+		}
 
 		agg.Add(m.SetCursor(m.indexOfVersion(m.migration.CurrentVersion)))
 
@@ -153,19 +154,38 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 			isSelected     = m.cursor == i
 		)
 
-		var symbol string
-		switch {
-		case isDirtyVersion:
-			symbol = "✗"
-		case migration.Version == 0:
+		cursor := " "
+		if migration.Version == m.migration.CurrentVersion {
+			if isDirtyVersion {
+				cursor = "✗"
+			} else {
+				cursor = "▶"
+			}
+		}
+
+		symbol := " "
+		if migration.Version == 0 {
 			symbol = "○"
-		case isMigrated:
+		} else if _, ok := m.migration.AppliedMigration[migration.Signature]; ok {
 			symbol = "✔"
-		default:
+		} else {
 			symbol = "○"
 		}
 
-		line := fmt.Sprintf("%s %d %s",
+		// var symbol string
+		// switch {
+		// case isDirtyVersion:
+		// 	symbol = "✗"
+		// case migration.Version == 0:
+		// 	symbol = "○"
+		// case isMigrated:
+		// 	symbol = "✔"
+		// default:
+		// 	symbol = "○"
+		// }
+
+		line := fmt.Sprintf("%s %s %d %s",
+			cursor,
 			symbol,
 			migration.Version,
 			migration.Identifier,

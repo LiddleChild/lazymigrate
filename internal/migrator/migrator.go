@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path"
 	gopath "path"
 	"slices"
 
+	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source"
@@ -17,9 +19,12 @@ import (
 
 type Migrator struct {
 	client *client
+	path   string
 
-	path      string
-	migration *Migration
+	currentVersion   uint
+	isDirty          bool
+	steps            []MigrationStep
+	appliedMigration map[Signature]MigrationStep
 }
 
 func Open(path string, database string, verbose bool) (*Migrator, error) {
@@ -29,10 +34,35 @@ func Open(path string, database string, verbose bool) (*Migrator, error) {
 		return nil, err
 	}
 
+	currentVersion, isDirty, err := client.Version()
+	switch {
+	case errors.Is(err, migrate.ErrNilVersion):
+		currentVersion = 0
+		isDirty = false
+	case err != nil:
+		return nil, err
+	}
+
+	steps, err := loadMigrations(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: load signature from storage, if exists
+	appliedMigration := updateAppliedMigration(make(map[Signature]MigrationStep), updateAppliedMigrationParam{
+		steps:       steps,
+		fromVersion: 0,
+		toVersion:   currentVersion,
+		isDirty:     isDirty,
+	})
+
 	return &Migrator{
-		client:    client,
-		path:      path,
-		migration: nil,
+		client:           client,
+		path:             path,
+		currentVersion:   currentVersion,
+		isDirty:          isDirty,
+		steps:            steps,
+		appliedMigration: appliedMigration,
 	}, nil
 }
 
@@ -41,23 +71,23 @@ func (m *Migrator) Stop() {
 }
 
 func (m *Migrator) GetMigration() (*Migration, error) {
-	currentVersion, isDirty, err := m.GetMigrationState()
+	var err error
+	m.currentVersion, m.isDirty, err = m.GetMigrationState()
 	if err != nil {
 		return nil, err
 	}
 
-	steps, err := m.fetchMigrations()
+	m.steps, err = loadMigrations(m.path)
 	if err != nil {
 		return nil, err
 	}
 
-	m.migration = &Migration{
-		Steps:          steps,
-		CurrentVersion: currentVersion,
-		IsDirty:        isDirty,
-	}
-
-	return m.migration, nil
+	return &Migration{
+		Steps:            m.steps,
+		AppliedMigration: m.appliedMigration,
+		CurrentVersion:   m.currentVersion,
+		IsDirty:          m.isDirty,
+	}, nil
 }
 
 func (m *Migrator) GetMigrationState() (uint, bool, error) {
@@ -76,8 +106,16 @@ func (m *Migrator) GetMigrationState() (uint, bool, error) {
 }
 
 func (m *Migrator) MigrateToVersion(version uint) error {
-	if err := m.client.Steps(int(version) - int(m.migration.CurrentVersion)); err != nil {
-		return m.handleError(err)
+	err := m.client.Steps(int(version) - int(m.currentVersion))
+	if errors.Is(err, migrate.ErrNoChange) {
+		return nil
+	} else if err != nil {
+		err := m.handleError(err)
+		return errors.Join(err, m.updateAppliedMigration())
+	}
+
+	if err := m.updateAppliedMigration(); err != nil {
+		return err
 	}
 
 	slog.Info(fmt.Sprintf("Migrated to version %d", version))
@@ -98,10 +136,14 @@ func (m *Migrator) ForceMigrateToVersion(version uint) error {
 func (m *Migrator) CreateMigration(name string) error {
 	var version uint = 1
 
-	if len(m.migration.Steps)-1 > 0 {
-		version = m.migration.Steps[len(m.migration.Steps)-1].Version
+	fmt.Fprintln(log.Entry, len(m.steps))
+
+	if len(m.steps) > 0 {
+		version = m.steps[len(m.steps)-1].Version
 		version++
 	}
+
+	fmt.Fprintln(log.Entry, version)
 
 	for _, direction := range []string{"up", "down"} {
 		filename := fmt.Sprintf("%06d_%s.%s.sql", version, name, direction)
@@ -122,13 +164,13 @@ func (m *Migrator) CreateMigration(name string) error {
 	return nil
 }
 
-func (m *Migrator) fetchMigrations() ([]MigrationStep, error) {
+func loadMigrations(path string) ([]MigrationStep, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 
-	f, err := os.Open(m.path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -155,17 +197,25 @@ func (m *Migrator) fetchMigrations() ([]MigrationStep, error) {
 			step = MigrationStep{
 				Version:    migration.Version,
 				Identifier: migration.Identifier,
+				Signature:  NewSignature(),
 			}
 		}
 
+		absPath := gopath.Join(wd, path, migration.Raw)
 		stepDirection := &MigrationStepDirection{
 			Fullname: migration.Raw,
-			Path:     gopath.Join(wd, m.path, migration.Raw),
+			Path:     absPath,
+		}
+
+		signature, err := NewSignatureFromFile(absPath)
+		if err != nil {
+			return nil, err
 		}
 
 		switch migration.Direction {
 		case source.Up:
 			step.Up = stepDirection
+			step.Signature = signature
 		case source.Down:
 			step.Down = stepDirection
 		}
@@ -174,13 +224,9 @@ func (m *Migrator) fetchMigrations() ([]MigrationStep, error) {
 	}
 
 	steps := []MigrationStep{}
-	for _, m := range mp {
-		steps = append(steps, m)
+	for _, version := range slices.Sorted(maps.Keys(mp)) {
+		steps = append(steps, mp[version])
 	}
-
-	slices.SortFunc(steps, func(a, b MigrationStep) int {
-		return int(a.Version) - int(b.Version)
-	})
 
 	return steps, nil
 }
@@ -193,4 +239,48 @@ func (m *Migrator) handleError(err error) error {
 	}
 
 	return err
+}
+
+func (m *Migrator) updateAppliedMigration() error {
+	currentVersion, isDirty, err := m.GetMigrationState()
+	if err != nil {
+		return err
+	}
+
+	m.appliedMigration = updateAppliedMigration(m.appliedMigration, updateAppliedMigrationParam{
+		steps:       m.steps,
+		fromVersion: m.currentVersion,
+		toVersion:   currentVersion,
+		isDirty:     isDirty,
+	})
+
+	return nil
+}
+
+type updateAppliedMigrationParam struct {
+	steps       []MigrationStep
+	fromVersion uint
+	toVersion   uint
+	isDirty     bool
+}
+
+func updateAppliedMigration(appliedMigration map[Signature]MigrationStep, param updateAppliedMigrationParam) map[Signature]MigrationStep {
+	if param.toVersion > param.fromVersion {
+		// migrate up
+		for _, step := range param.steps {
+			if (step.Version > param.fromVersion && step.Version < param.toVersion) ||
+				(!param.isDirty && step.Version == param.toVersion) {
+				appliedMigration[step.Signature] = step
+			}
+		}
+	} else {
+		// migrate down
+		for _, step := range param.steps {
+			if step.Version > param.toVersion && step.Version <= param.fromVersion {
+				delete(appliedMigration, step.Signature)
+			}
+		}
+	}
+
+	return appliedMigration
 }

@@ -44,9 +44,13 @@ func (conn *client) Reconnect() error {
 func (conn *client) Connect() error {
 	var err error
 	conn.Migrate, err = migrate.New(conn.sourceURL, conn.databaseURL)
+	if err != nil {
+		return err
+	}
+
 	conn.Migrate.Log = newMigrateLogger(conn.verbose)
 
 	slog.Info("Connected")
 
-	return err
+	return nil
 }
