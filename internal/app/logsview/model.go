@@ -58,7 +58,10 @@ func (m *Model) Render(ctx brownsugar.RenderContext) string {
 
 	m.viewport.SetWidth(width)
 	m.viewport.SetHeight(height)
-	m.viewport.SetContent(strings.Join(msgs, "\n"))
+	m.viewport.SetContent(lipgloss.NewStyle().
+		Width(width).
+		Render(lipgloss.JoinVertical(lipgloss.Top, msgs...)),
+	)
 	m.viewport.GotoBottom()
 
 	return border.
