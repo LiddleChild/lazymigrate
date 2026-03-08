@@ -1,6 +1,9 @@
 package migrator
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +13,7 @@ import (
 	gopath "path"
 	"slices"
 
+	"github.com/LiddleChild/lazymigrate/internal/cache"
 	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -21,13 +25,16 @@ type Migrator struct {
 	client *client
 	path   string
 
-	currentVersion   uint
-	isDirty          bool
-	steps            []MigrationStep
+	cache            *cache.Cache
+	cacheKey         string
 	appliedMigration map[Signature]MigrationStep
+
+	currentVersion uint
+	isDirty        bool
+	steps          []MigrationStep
 }
 
-func Open(path string, database string, verbose bool) (*Migrator, error) {
+func New(cache *cache.Cache, path string, database string, verbose bool) (*Migrator, error) {
 	sourceURL := fmt.Sprintf("file://%s", path)
 	client, err := newClient(sourceURL, database, verbose)
 	if err != nil {
@@ -48,21 +55,41 @@ func Open(path string, database string, verbose bool) (*Migrator, error) {
 		return nil, err
 	}
 
-	// TODO: load signature from storage, if exists
-	appliedMigration := updateAppliedMigration(make(map[Signature]MigrationStep), updateAppliedMigrationParam{
-		steps:       steps,
-		fromVersion: 0,
-		toVersion:   currentVersion,
-		isDirty:     isDirty,
-	})
+	cacheKey, err := toCacheKey(path, database)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, err := cache.Read(cacheKey)
+	if err != nil {
+		return nil, err
+	}
+
+	appliedMigration := make(map[Signature]MigrationStep)
+	if buffer != nil {
+		if err := json.Unmarshal(buffer, &appliedMigration); err != nil {
+			slog.Error(fmt.Sprintf("dirty cache state: %s", err.Error()))
+		}
+	}
+
+	if len(appliedMigration) == 0 {
+		appliedMigration = updateAppliedMigration(appliedMigration, updateAppliedMigrationParam{
+			steps:       steps,
+			fromVersion: 0,
+			toVersion:   currentVersion,
+			isDirty:     isDirty,
+		})
+	}
 
 	return &Migrator{
 		client:           client,
 		path:             path,
+		cache:            cache,
+		cacheKey:         cacheKey,
+		appliedMigration: appliedMigration,
 		currentVersion:   currentVersion,
 		isDirty:          isDirty,
 		steps:            steps,
-		appliedMigration: appliedMigration,
 	}, nil
 }
 
@@ -254,7 +281,12 @@ func (m *Migrator) updateAppliedMigration() error {
 		isDirty:     isDirty,
 	})
 
-	return nil
+	buffer, err := json.Marshal(m.appliedMigration)
+	if err != nil {
+		return err
+	}
+
+	return m.cache.Write(m.cacheKey, buffer)
 }
 
 type updateAppliedMigrationParam struct {
@@ -283,4 +315,15 @@ func updateAppliedMigration(appliedMigration map[Signature]MigrationStep, param 
 	}
 
 	return appliedMigration
+}
+
+func toCacheKey(source, database string) (string, error) {
+
+	hasher := sha256.New()
+	_, err := hasher.Write([]byte(source + database))
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

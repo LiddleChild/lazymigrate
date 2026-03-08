@@ -17,7 +17,7 @@ func NewLogDispatcher() *LogDispatcher {
 	var (
 		pr, pw  = io.Pipe()
 		decoder = json.NewDecoder(pr)
-		ch      = make(chan Message)
+		ch      = make(chan Message, 128)
 	)
 
 	handler := &LogDispatcher{

@@ -1,10 +1,10 @@
 features
 - help menu
     - properly handle keys
-- save applied migration state to file
 - support config file in yaml for multiple sources
-- change migration version
+- able to handle duplicated migration version
 - syntax highlight sql
+- handle dirty state globally
 
 refactors
 - view orchestrator

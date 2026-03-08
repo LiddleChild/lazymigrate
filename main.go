@@ -7,6 +7,7 @@ import (
 
 	"github.com/LiddleChild/lazymigrate/internal/app"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
+	"github.com/LiddleChild/lazymigrate/internal/cache"
 	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 	"github.com/LiddleChild/lazymigrate/internal/runconfig"
@@ -48,7 +49,12 @@ func run() error {
 		)),
 	)
 
-	migrator, err := migrator.Open(cfg.Path, cfg.Database, cfg.IsVerbose)
+	cache, err := cache.New()
+	if err != nil {
+		return err
+	}
+
+	migrator, err := migrator.New(cache, cfg.Path, cfg.Database, cfg.IsVerbose)
 	if err != nil {
 		return err
 	}
