@@ -18,13 +18,14 @@ type FocusedPane int
 const (
 	FocusPaneMigration FocusedPane = iota
 	FocusPaneContent
-	focusPaneEnd
+	FocusPaneLog
 )
 
 var (
 	KeyEnter = key.NewBinding(key.WithKeys("enter"))
 	KeyEsc   = key.NewBinding(key.WithKeys("esc"))
 	Keyn     = key.NewBinding(key.WithKeys("n"))
+	Keyl     = key.NewBinding(key.WithKeys("l"))
 )
 
 var _ brownsugar.SceneModel = (*Model)(nil)
@@ -76,6 +77,10 @@ func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 		switch {
 		case key.Matches(msg, KeyEnter):
 			m.focusedPane = FocusPaneContent
+			m.updateFocusedPane()
+
+		case key.Matches(msg, Keyl):
+			m.focusedPane = FocusPaneLog
 			m.updateFocusedPane()
 
 		case key.Matches(msg, KeyEsc):
@@ -146,6 +151,7 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 func (m *Model) updateFocusedPane() {
 	m.migrationview.Blur()
 	m.contentview.Blur()
+	m.logsview.Blur()
 
 	switch m.focusedPane {
 	case FocusPaneMigration:
@@ -153,5 +159,8 @@ func (m *Model) updateFocusedPane() {
 
 	case FocusPaneContent:
 		m.contentview.Focus()
+
+	case FocusPaneLog:
+		m.logsview.Focus()
 	}
 }

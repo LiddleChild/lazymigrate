@@ -36,12 +36,22 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
+	var (
+		cmd tea.Cmd
+		agg brownsugar.CmdAggregator
+	)
+
 	switch msg := msg.(type) {
 	case appevent.LogMessageMsg:
 		m.messages = append(m.messages, msg)
 	}
 
-	return m, nil
+	if m.IsFocused() {
+		m.viewport, cmd = m.viewport.Update(msg)
+		agg.Add(cmd)
+	}
+
+	return m, cmd
 }
 
 func (m *Model) Render(ctx brownsugar.Context) string {
@@ -60,13 +70,18 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 		msgs = append(msgs, m.renderMessage(msg))
 	}
 
+	wasAtBottom := m.viewport.AtBottom()
+
 	m.viewport.SetWidth(width)
 	m.viewport.SetHeight(height)
 	m.viewport.SetContent(lipgloss.NewStyle().
 		Width(width).
 		Render(lipgloss.JoinVertical(lipgloss.Top, msgs...)),
 	)
-	m.viewport.GotoBottom()
+
+	if wasAtBottom {
+		m.viewport.GotoBottom()
+	}
 
 	return scrollpane.
 		SetTotalLine(m.viewport.TotalLineCount()).
