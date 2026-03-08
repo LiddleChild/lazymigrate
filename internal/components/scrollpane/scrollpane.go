@@ -1,0 +1,108 @@
+package scrollpane
+
+import (
+	"math"
+	"slices"
+
+	"charm.land/lipgloss/v2"
+)
+
+type Scrollpane struct {
+	foreground  lipgloss.ANSIColor
+	borderStyle lipgloss.Border
+	cursorStyle lipgloss.Border
+	visibleLine int
+	totalLine   int
+	currentLine int
+}
+
+func New() Scrollpane {
+	return Scrollpane{}
+}
+
+func (p Scrollpane) SetVisibleLine(visibleLine int) Scrollpane {
+	p.visibleLine = visibleLine
+	return p
+}
+
+func (p Scrollpane) SetTotalLine(totalLine int) Scrollpane {
+	p.totalLine = totalLine
+	return p
+}
+
+func (p Scrollpane) SetCurrentLine(currentLine int) Scrollpane {
+	p.currentLine = currentLine
+	return p
+}
+
+func (p Scrollpane) Foreground(color lipgloss.ANSIColor) Scrollpane {
+	p.foreground = color
+	return p
+}
+
+func (p Scrollpane) BorderStyle(b lipgloss.Border) Scrollpane {
+	p.borderStyle = b
+	return p
+}
+
+func (p Scrollpane) CursorStyle(b lipgloss.Border) Scrollpane {
+	p.cursorStyle = b
+	return p
+}
+
+func (p Scrollpane) Render(content string) string {
+	scrollbars := make([]string, 0, p.visibleLine)
+	if p.totalLine > p.visibleLine {
+		var (
+			fVisibleLine = float64(p.visibleLine)
+			fCurrentLine = float64(p.currentLine)
+			fTotalLine   = float64(p.totalLine)
+		)
+
+		var (
+			scrollbarTop  = math.Round(fVisibleLine * fCurrentLine / fTotalLine)
+			scrollbarSize = max(1, math.Round(fVisibleLine*fVisibleLine/fTotalLine)-1)
+		)
+
+		for i := float64(0); i < fVisibleLine; i++ {
+			if i >= scrollbarTop && i <= scrollbarTop+scrollbarSize {
+				scrollbars = append(scrollbars, p.cursorStyle.Right)
+			} else {
+				scrollbars = append(scrollbars, p.borderStyle.Right)
+			}
+		}
+	} else {
+		for i := 0; i < p.visibleLine; i++ {
+			scrollbars = append(scrollbars, p.borderStyle.Right)
+		}
+	}
+
+	rightBorder := slices.Concat(
+		[]string{p.borderStyle.TopRight},
+		scrollbars,
+		[]string{p.borderStyle.BottomRight},
+	)
+
+	scrollbar := lipgloss.NewStyle().
+		Foreground(p.foreground).
+		Render(lipgloss.JoinVertical(lipgloss.Top, rightBorder...))
+
+	return lipgloss.JoinHorizontal(lipgloss.Left,
+		lipgloss.NewStyle().
+			Border(p.borderStyle).
+			BorderRight(false).
+			BorderForeground(p.foreground).
+			Render(content),
+		scrollbar,
+	)
+}
+
+// TODO: properly calculate this
+func (p Scrollpane) GetHorizontalBorderSize() int {
+	return 2
+}
+
+// TODO: properly calculate this
+func (p Scrollpane) GetVerticalBorderSize() int {
+	return 2
+}

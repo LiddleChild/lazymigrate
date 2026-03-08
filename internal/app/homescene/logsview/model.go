@@ -9,6 +9,7 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/components/focus"
+	"github.com/LiddleChild/lazymigrate/internal/components/scrollpane"
 	"github.com/LiddleChild/lazymigrate/internal/log"
 )
 
@@ -45,10 +46,13 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 
 func (m *Model) Render(ctx brownsugar.Context) string {
 	var (
-		border = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
+		scrollpane = scrollpane.New().
+				Foreground(m.borderColor()).
+				BorderStyle(lipgloss.RoundedBorder()).
+				CursorStyle(lipgloss.OuterHalfBlockBorder())
 
-		width  = ctx.Width - border.GetHorizontalFrameSize()
-		height = ctx.Height - border.GetVerticalFrameSize()
+		width  = ctx.Width - scrollpane.GetHorizontalBorderSize()
+		height = ctx.Height - scrollpane.GetVerticalBorderSize()
 	)
 
 	msgs := []string{}
@@ -64,8 +68,10 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 	)
 	m.viewport.GotoBottom()
 
-	return border.
-		BorderForeground(m.borderColor()).
+	return scrollpane.
+		SetTotalLine(m.viewport.TotalLineCount()).
+		SetVisibleLine(m.viewport.Height()).
+		SetCurrentLine(m.viewport.YOffset()).
 		Render(m.viewport.View())
 }
 

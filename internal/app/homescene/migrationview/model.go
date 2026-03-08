@@ -3,6 +3,7 @@ package migrationview
 import (
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/components/focus"
+	"github.com/LiddleChild/lazymigrate/internal/components/scrollpane"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 )
 
@@ -114,7 +116,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 
 		m.migration = migrator.Migration{
 			Steps:            steps,
-			AppliedMigration: msg.AppliedMigration,
+			AppliedMigration: maps.Clone(msg.AppliedMigration),
 			CurrentVersion:   msg.CurrentVersion,
 			IsDirty:          msg.IsDirty,
 		}
@@ -135,10 +137,13 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 
 func (m *Model) Render(ctx brownsugar.Context) string {
 	var (
-		border = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
+		scrollpane = scrollpane.New().
+				Foreground(m.borderColor()).
+				BorderStyle(lipgloss.RoundedBorder()).
+				CursorStyle(lipgloss.OuterHalfBlockBorder())
 
-		width  = ctx.Width - border.GetHorizontalFrameSize()
-		height = ctx.Height - border.GetVerticalFrameSize()
+		width  = ctx.Width - scrollpane.GetHorizontalBorderSize()
+		height = ctx.Height - scrollpane.GetVerticalBorderSize()
 	)
 
 	var longestVersionLength int
@@ -171,18 +176,6 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 		} else {
 			symbol = "○"
 		}
-
-		// var symbol string
-		// switch {
-		// case isDirtyVersion:
-		// 	symbol = "✗"
-		// case migration.Version == 0:
-		// 	symbol = "○"
-		// case isMigrated:
-		// 	symbol = "✔"
-		// default:
-		// 	symbol = "○"
-		// }
 
 		line := fmt.Sprintf("%s %s %d %s",
 			cursor,
@@ -241,8 +234,10 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 	m.viewport.SetContent(strings.Join(contents, "\n"))
 	m.focusAtCursor()
 
-	return border.
-		BorderForeground(m.borderColor()).
+	return scrollpane.
+		SetTotalLine(len(m.migration.Steps)).
+		SetVisibleLine(m.viewport.Height()).
+		SetCurrentLine(m.viewport.YOffset()).
 		Render(m.viewport.View())
 }
 
