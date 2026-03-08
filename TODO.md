@@ -7,5 +7,4 @@ features
 - handle dirty state globally
 
 refactors
-- view orchestrator
 - refactor logging attribute

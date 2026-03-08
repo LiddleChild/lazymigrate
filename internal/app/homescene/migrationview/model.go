@@ -133,7 +133,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	return m, tea.Batch(agg...)
 }
 
-func (m *Model) Render(ctx brownsugar.RenderContext) string {
+func (m *Model) Render(ctx brownsugar.Context) string {
 	var (
 		border = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 

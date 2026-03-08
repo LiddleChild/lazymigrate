@@ -1,4 +1,4 @@
-package newmigrationview
+package newmigrationscene
 
 import (
 	"strings"
@@ -17,11 +17,13 @@ var (
 	KeyEsc   = key.NewBinding(key.WithKeys("esc"))
 )
 
+var _ brownsugar.SceneModel = (*Model)(nil)
+
 type Model struct {
 	input textinput.Model
 }
 
-func New() *Model {
+func New() brownsugar.SceneModel {
 	input := textinput.New()
 	input.Focus()
 
@@ -30,11 +32,15 @@ func New() *Model {
 	}
 }
 
+func (m *Model) Scene() string {
+	return appscene.SceneNewMigration
+}
+
 func (m *Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -47,11 +53,11 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			return m, brownsugar.Cmd(appevent.NewCreateMigrationMsg(value))
 
 		case key.Matches(msg, KeyEsc):
-			return m, brownsugar.Cmd(appevent.NewSwitchSceneMsg(appscene.SceneHome))
+			return m, brownsugar.Cmd(brownsugar.NewSwitchSceneMsg(appscene.SceneHome))
 		}
 
 	case appevent.MigrationCreatedMsg:
-		return m, brownsugar.Cmd(appevent.NewSwitchSceneMsg(appscene.SceneHome))
+		return m, brownsugar.Cmd(brownsugar.NewSwitchSceneMsg(appscene.SceneHome))
 	}
 
 	var cmd tea.Cmd
@@ -59,7 +65,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *Model) Render(ctx brownsugar.RenderContext) string {
+func (m *Model) Render(ctx brownsugar.Context) string {
 	var (
 		border = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 
