@@ -1,6 +1,6 @@
 .PHONY: debug
 debug:
-	tail -f debug.log
+	tail -f ~/.local/share/lazymigrate/debug.log
 
 .PHONY: test
 test:

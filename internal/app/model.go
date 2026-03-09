@@ -63,6 +63,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		appevent.UpdateMigrationMsg:
 
 	default:
+		// TODO: use slog here
 		spew.Fdump(log.Entry, msg)
 	}
 

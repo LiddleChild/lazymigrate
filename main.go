@@ -40,6 +40,8 @@ func run() error {
 	var handlerOpt slog.HandlerOptions
 	if cfg.IsDebug {
 		handlerOpt.Level = slog.LevelDebug
+	} else {
+		handlerOpt.Level = slog.LevelError
 	}
 
 	slog.SetDefault(
