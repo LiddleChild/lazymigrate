@@ -54,17 +54,17 @@ func (p Scrollpane) Render(content string) string {
 	scrollbars := make([]string, 0, p.visibleLine)
 	if p.totalLine > p.visibleLine {
 		var (
-			fVisibleLine = float64(p.visibleLine)
 			fCurrentLine = float64(p.currentLine)
-			fTotalLine   = float64(p.totalLine)
+			fVisibleLine = float64(p.visibleLine) - 1
+			fTotalLine   = float64(p.totalLine) - 1
 		)
 
 		var (
-			scrollbarTop  = math.Round(fVisibleLine * fCurrentLine / fTotalLine)
-			scrollbarSize = max(1, math.Round(fVisibleLine*fVisibleLine/fTotalLine)-1)
+			scrollbarTop  = math.Round(fVisibleLine / fTotalLine * fCurrentLine)
+			scrollbarSize = math.Round(fVisibleLine / fTotalLine * fVisibleLine)
 		)
 
-		for i := float64(0); i < fVisibleLine; i++ {
+		for i := float64(0); i < float64(p.visibleLine); i++ {
 			if i >= scrollbarTop && i <= scrollbarTop+scrollbarSize {
 				scrollbars = append(scrollbars, p.cursorStyle.Right)
 			} else {
