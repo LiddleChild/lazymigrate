@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -21,6 +22,10 @@ var (
 
 func Initialize() {
 	v = validator.New()
+	v.RegisterTagNameFunc(func(field reflect.StructField) string {
+		return field.Tag.Get("yaml")
+	})
+
 	en := en.New()
 	t, _ = ut.New(en, en).GetTranslator("en")
 	translationEN.RegisterDefaultTranslations(v, t)
