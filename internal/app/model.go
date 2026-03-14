@@ -49,10 +49,7 @@ func New(migrator *migrator.Migrator) tea.Model {
 }
 
 func (m *model) Init() tea.Cmd {
-	return tea.Sequence(
-		m.sceneManager.Init(),
-		brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
-	)
+	return m.sceneManager.Init()
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

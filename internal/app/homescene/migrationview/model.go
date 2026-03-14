@@ -61,7 +61,7 @@ func New() *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return nil
+	return brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg())
 }
 
 func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
