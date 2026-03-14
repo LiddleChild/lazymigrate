@@ -11,6 +11,7 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 	"github.com/LiddleChild/lazymigrate/internal/runconfig"
+	"github.com/LiddleChild/lazymigrate/internal/source"
 	"github.com/LiddleChild/lazymigrate/internal/validator"
 
 	tea "charm.land/bubbletea/v2"
@@ -56,7 +57,17 @@ func run() error {
 		return err
 	}
 
-	migrator, err := migrator.New(cache, cfg.Path, cfg.Database, cfg.IsVerbose)
+	var manager *source.Manager
+	if cfg.SourceFilePath != "" {
+		manager, err = source.NewManagerFromPath(cache, cfg.SourceFilePath)
+	} else {
+		manager, err = source.NewManagerFromSource(cfg.Path, cfg.Database)
+	}
+	if err != nil {
+		return err
+	}
+
+	migrator, err := migrator.New(cache, manager, cfg.IsVerbose)
 	if err != nil {
 		return err
 	}

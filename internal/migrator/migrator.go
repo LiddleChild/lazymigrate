@@ -11,13 +11,15 @@ import (
 	"os"
 	"path"
 	gopath "path"
+	"path/filepath"
 	"slices"
 
 	"github.com/LiddleChild/lazymigrate/internal/cache"
 	"github.com/LiddleChild/lazymigrate/internal/log"
+	"github.com/LiddleChild/lazymigrate/internal/source"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	"github.com/golang-migrate/migrate/v4/source"
+	migratesource "github.com/golang-migrate/migrate/v4/source"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
@@ -34,9 +36,15 @@ type Migrator struct {
 	steps          []MigrationStep
 }
 
-func New(cache *cache.Cache, path string, database string, verbose bool) (*Migrator, error) {
-	sourceURL := fmt.Sprintf("file://%s", path)
-	client, err := newClient(sourceURL, database, verbose)
+func New(cache *cache.Cache, sourceManager *source.Manager, verbose bool) (*Migrator, error) {
+	source := sourceManager.GetCurrentSource()
+
+	var (
+		sourceURL   = fmt.Sprintf("file://%s", source.Path)
+		databaseURL = source.DatabaseURL.String()
+	)
+
+	client, err := newClient(sourceURL, databaseURL, verbose)
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +58,12 @@ func New(cache *cache.Cache, path string, database string, verbose bool) (*Migra
 		return nil, err
 	}
 
-	steps, err := loadMigrations(path)
+	steps, err := loadMigrations(source.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	cacheKey, err := toCacheKey(path, database)
+	cacheKey, err := source.Hash()
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +91,7 @@ func New(cache *cache.Cache, path string, database string, verbose bool) (*Migra
 
 	return &Migrator{
 		client:           client,
-		path:             path,
+		path:             source.Path,
 		cache:            cache,
 		cacheKey:         cacheKey,
 		appliedMigration: appliedMigration,
@@ -192,12 +200,12 @@ func (m *Migrator) CreateMigration(name string) error {
 }
 
 func loadMigrations(path string) ([]MigrationStep, error) {
-	wd, err := os.Getwd()
+	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
 
-	f, err := os.Open(path)
+	f, err := os.Open(absPath)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +220,7 @@ func loadMigrations(path string) ([]MigrationStep, error) {
 
 	mp := make(map[uint]MigrationStep)
 	for _, entry := range entries {
-		migration, err := source.Parse(entry.Name())
+		migration, err := migratesource.Parse(entry.Name())
 		if err != nil {
 			// ignore that entry, if it cannot be parse
 			// same behavior with migrate library
@@ -228,7 +236,7 @@ func loadMigrations(path string) ([]MigrationStep, error) {
 			}
 		}
 
-		absPath := gopath.Join(wd, path, migration.Raw)
+		absPath := gopath.Join(absPath, migration.Raw)
 		stepDirection := &MigrationStepDirection{
 			Fullname: migration.Raw,
 			Path:     absPath,
@@ -240,10 +248,10 @@ func loadMigrations(path string) ([]MigrationStep, error) {
 		}
 
 		switch migration.Direction {
-		case source.Up:
+		case migratesource.Up:
 			step.Up = stepDirection
 			step.Signature = signature
-		case source.Down:
+		case migratesource.Down:
 			step.Down = stepDirection
 		}
 
@@ -318,7 +326,6 @@ func updateAppliedMigration(appliedMigration map[Signature]MigrationStep, param 
 }
 
 func toCacheKey(source, database string) (string, error) {
-
 	hasher := sha256.New()
 	_, err := hasher.Write([]byte(source + database))
 	if err != nil {
