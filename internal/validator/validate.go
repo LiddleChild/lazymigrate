@@ -28,7 +28,7 @@ func Initialize() {
 
 	en := en.New()
 	t, _ = ut.New(en, en).GetTranslator("en")
-	translationEN.RegisterDefaultTranslations(v, t)
+	_ = translationEN.RegisterDefaultTranslations(v, t)
 }
 
 func ValidateStruct(e any) error {

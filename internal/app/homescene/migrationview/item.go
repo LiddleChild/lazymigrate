@@ -33,7 +33,7 @@ func (i item) Render(ctx list.Context) string {
 		}
 	}
 
-	symbol := " "
+	var symbol string
 	if i.step.Version == 0 {
 		symbol = "○"
 	} else if i.isApplied {

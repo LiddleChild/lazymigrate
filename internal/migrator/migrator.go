@@ -1,21 +1,17 @@
 package migrator
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
 	"os"
-	"path"
 	gopath "path"
 	"path/filepath"
 	"slices"
 
 	"github.com/LiddleChild/lazymigrate/internal/cache"
-	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/source"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -169,20 +165,16 @@ func (m *Migrator) ForceMigrateToVersion(version uint) error {
 func (m *Migrator) CreateMigration(name string) error {
 	var version uint = 1
 
-	fmt.Fprintln(log.Entry, len(m.steps))
-
 	if len(m.steps) > 0 {
 		version = m.steps[len(m.steps)-1].Version
 		version++
 	}
 
-	fmt.Fprintln(log.Entry, version)
-
 	for _, direction := range []string{"up", "down"} {
 		filename := fmt.Sprintf("%06d_%s.%s.sql", version, name, direction)
 
 		// same to migrate
-		f, err := os.OpenFile(path.Join(m.path, filename), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+		f, err := os.OpenFile(gopath.Join(m.path, filename), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
 			return err
 		}
@@ -321,14 +313,4 @@ func updateAppliedMigration(appliedMigration map[Signature]MigrationStep, param 
 	}
 
 	return appliedMigration
-}
-
-func toCacheKey(source, database string) (string, error) {
-	hasher := sha256.New()
-	_, err := hasher.Write([]byte(source + database))
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

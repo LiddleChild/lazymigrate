@@ -48,7 +48,7 @@ func (conn *client) Connect() error {
 		return err
 	}
 
-	conn.Migrate.Log = newMigrateLogger(conn.verbose)
+	conn.Log = newMigrateLogger(conn.verbose)
 
 	slog.Info("Connected")
 

@@ -128,7 +128,7 @@ func (m *Model) renderMessage(msg log.Message) string {
 			Render("ERROR")
 	}
 
-	sMsg := msg.Message
+	var sMsg string
 	if msg.Secondary {
 		sMsg = lipgloss.NewStyle().
 			Foreground(brownsugar.ColorWhite).
