@@ -84,8 +84,9 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 	}
 
 	return scrollpane.
+		SetWidth(ctx.Width).
+		SetHeight(ctx.Height).
 		SetTotalLine(m.viewport.TotalLineCount()).
-		SetVisibleLine(m.viewport.Height()).
 		SetCurrentLine(m.viewport.YOffset()).
 		Render(m.viewport.View())
 }

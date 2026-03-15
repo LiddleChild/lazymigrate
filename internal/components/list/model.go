@@ -47,6 +47,8 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 func (m *Model) Render(ctx brownsugar.Context) string {
 	var (
 		scrollpane = scrollpane.New().
+				SetWidth(ctx.Width).
+				SetHeight(ctx.Height).
 				Foreground(m.borderForegroundColor).
 				BorderStyle(lipgloss.RoundedBorder()).
 				CursorStyle(lipgloss.OuterHalfBlockBorder())
@@ -73,7 +75,6 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 
 	return scrollpane.
 		SetTotalLine(len(m.items)).
-		SetVisibleLine(m.viewport.Height()).
 		SetCurrentLine(m.viewport.YOffset()).
 		Render(m.viewport.View())
 }

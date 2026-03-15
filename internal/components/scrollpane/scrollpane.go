@@ -8,21 +8,21 @@ import (
 )
 
 type Scrollpane struct {
-	foreground  lipgloss.ANSIColor
+	foreground lipgloss.ANSIColor
+
 	borderStyle lipgloss.Border
 	cursorStyle lipgloss.Border
+
 	visibleLine int
 	totalLine   int
 	currentLine int
+
+	width  int
+	height int
 }
 
 func New() Scrollpane {
 	return Scrollpane{}
-}
-
-func (p Scrollpane) SetVisibleLine(visibleLine int) Scrollpane {
-	p.visibleLine = visibleLine
-	return p
 }
 
 func (p Scrollpane) SetTotalLine(totalLine int) Scrollpane {
@@ -47,6 +47,17 @@ func (p Scrollpane) BorderStyle(b lipgloss.Border) Scrollpane {
 
 func (p Scrollpane) CursorStyle(b lipgloss.Border) Scrollpane {
 	p.cursorStyle = b
+	return p
+}
+
+func (p Scrollpane) SetWidth(width int) Scrollpane {
+	p.width = width
+	return p
+}
+
+func (p Scrollpane) SetHeight(height int) Scrollpane {
+	p.height = height
+	p.visibleLine = height - p.GetVerticalBorderSize()
 	return p
 }
 
@@ -77,7 +88,7 @@ func (p Scrollpane) Render(content string) string {
 		}
 	}
 
-	rightBorder := slices.Concat(
+	rightBorders := slices.Concat(
 		[]string{p.borderStyle.TopRight},
 		scrollbars,
 		[]string{p.borderStyle.BottomRight},
@@ -85,10 +96,12 @@ func (p Scrollpane) Render(content string) string {
 
 	scrollbar := lipgloss.NewStyle().
 		Foreground(p.foreground).
-		Render(lipgloss.JoinVertical(lipgloss.Top, rightBorder...))
+		Render(lipgloss.JoinVertical(lipgloss.Top, rightBorders...))
 
 	return lipgloss.JoinHorizontal(lipgloss.Left,
 		lipgloss.NewStyle().
+			Width(p.width-1).
+			Height(p.height).
 			Border(p.borderStyle).
 			BorderRight(false).
 			BorderForeground(p.foreground).
