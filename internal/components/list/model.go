@@ -14,8 +14,9 @@ import (
 type Model struct {
 	focus.Model
 
-	items  []Item
-	cursor int
+	cursor             int
+	items              []Item
+	accumulatedHeights []int
 
 	borderForegroundColor lipgloss.ANSIColor
 
@@ -29,8 +30,9 @@ func New() *Model {
 
 	return &Model{
 		Model:                 focus.New(),
-		items:                 make([]Item, 0),
 		cursor:                0,
+		items:                 make([]Item, 0),
+		accumulatedHeights:    make([]int, 0),
 		borderForegroundColor: brownsugar.ColorWhite,
 		viewport:              viewport,
 	}
@@ -59,20 +61,25 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 
 	contents := []string{}
 	for i, item := range m.items {
-		contents = append(contents,
-			item.Render(Context{
-				Width:    ctx.Width,
-				Selected: i == m.cursor,
-			}),
-		)
+		content := item.Render(Context{
+			Width:    ctx.Width,
+			Selected: i == m.cursor,
+		})
+
+		contents = append(contents, content)
 	}
 
 	m.viewport.SetWidth(width)
 	m.viewport.SetHeight(height)
 	m.viewport.SetContent(lipgloss.JoinVertical(lipgloss.Top, contents...))
 
+	totalLine := 0
+	if len(m.accumulatedHeights) > 0 {
+		totalLine = m.accumulatedHeights[len(m.accumulatedHeights)-1]
+	}
+
 	return scrollpane.
-		SetTotalLine(len(m.items)).
+		SetTotalLine(totalLine).
 		SetCurrentLine(m.viewport.YOffset()).
 		Render(m.viewport.View())
 }
@@ -112,10 +119,11 @@ func (m *Model) SetCursor(cursor int) int {
 
 func (m *Model) FocusAtCursor() {
 	var (
-		offset = m.cursor - m.viewport.Height()/2
+		cursor = m.cursorWithHeight()
+		offset = cursor - m.viewport.Height()/2
 
-		topBound    = m.cursor - m.viewport.Height()/2
-		bottomBound = m.cursor + m.viewport.Height()/2
+		topBound    = cursor - m.viewport.Height()/2
+		bottomBound = cursor + m.viewport.Height()/2
 	)
 
 	if topBound < 0 {
@@ -134,6 +142,14 @@ func (m *Model) GetItems() []Item {
 func (m *Model) SetItems(items []Item) {
 	m.items = slices.Clone(items)
 
+	m.accumulatedHeights = m.accumulatedHeights[:0]
+
+	var accuHeight int
+	for _, item := range items {
+		m.accumulatedHeights = append(m.accumulatedHeights, accuHeight)
+		accuHeight += item.Height()
+	}
+
 	// reset cursor to ensure that cursor is always in bound
 	m.SetCursor(m.cursor)
 }
@@ -144,4 +160,11 @@ func (m *Model) GetSelectedItem() Item {
 
 func (m *Model) SetBorderForegroundColor(color lipgloss.ANSIColor) {
 	m.borderForegroundColor = color
+}
+
+func (m *Model) cursorWithHeight() int {
+	if len(m.accumulatedHeights) == 0 {
+		return 0
+	}
+	return m.accumulatedHeights[m.cursor]
 }

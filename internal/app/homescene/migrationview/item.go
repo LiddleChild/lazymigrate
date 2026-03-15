@@ -90,3 +90,7 @@ func (i item) Render(ctx list.Context) string {
 
 	return style.Width(max(ctx.Width, lineWidth)).Render(line)
 }
+
+func (i item) Height() int {
+	return 1
+}
