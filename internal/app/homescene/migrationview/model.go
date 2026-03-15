@@ -1,22 +1,17 @@
 package migrationview
 
 import (
-	"fmt"
 	"log/slog"
-	"maps"
 	"slices"
-	"strconv"
-	"strings"
 	"sync/atomic"
 
 	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/components/focus"
-	"github.com/LiddleChild/lazymigrate/internal/components/scrollpane"
+	"github.com/LiddleChild/lazymigrate/internal/components/list"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 )
 
@@ -32,31 +27,19 @@ var (
 type Model struct {
 	focus.Model
 
-	migration migrator.Migration
-	cursor    int
-	isLocked  *atomic.Bool
+	isLocked *atomic.Bool
 
-	viewport viewport.Model
+	list *list.Model
 }
 
 func New() *Model {
-	viewport := viewport.New()
-	viewport.KeyMap.Up.SetEnabled(false)
-	viewport.KeyMap.Down.SetEnabled(false)
-
 	isLocked := new(atomic.Bool)
 	isLocked.Store(false)
 
 	return &Model{
-		Model: focus.New(),
-		migration: migrator.Migration{
-			Steps:          make([]migrator.MigrationStep, 0),
-			CurrentVersion: 0,
-			IsDirty:        false,
-		},
-		cursor:   0,
+		Model:    focus.New(),
 		isLocked: isLocked,
-		viewport: viewport,
+		list:     list.New(),
 	}
 }
 
@@ -78,28 +61,24 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 
 		switch {
 		case key.Matches(msg, Keyj) && !m.isLocked.Load():
-			cmd = m.SetCursor(m.cursor + 1)
-			agg.Add(cmd)
+			agg.Add(m.moveCursorCmd(m.list.Down()))
 
 		case key.Matches(msg, Keyk) && !m.isLocked.Load():
-			cmd = m.SetCursor(m.cursor - 1)
-			agg.Add(cmd)
+			agg.Add(m.moveCursorCmd(m.list.Up()))
 
 		case key.Matches(msg, KeyG) && !m.isLocked.Load():
-			cmd = m.SetCursor(m.numberOfSteps() - 1)
-			agg.Add(cmd)
+			agg.Add(m.moveCursorCmd(m.list.Bottom()))
 
 		case key.Matches(msg, Keyg) && !m.isLocked.Load():
-			cmd = m.SetCursor(0)
-			agg.Add(cmd)
+			agg.Add(m.moveCursorCmd(m.list.Top()))
 
 		case key.Matches(msg, KeySpace) && m.lock():
-			version := m.GetSelectedMigrationStep().Version
+			version := m.getSelectedMigrationStep().Version
 			agg.Add(brownsugar.Cmd(appevent.NewMigrateMsg(version)))
 
 		case key.Matches(msg, Keyf) && m.lock():
-			if m.GetSelectedMigrationStep().Version > 0 {
-				version := m.GetSelectedMigrationStep().Version
+			if m.getSelectedMigrationStep().Version > 0 {
+				version := m.getSelectedMigrationStep().Version
 				agg.Add(brownsugar.Cmd(appevent.NewForceMigrateMsg(version)))
 			} else {
 				slog.Error("cannot force migrate to version zero")
@@ -107,157 +86,60 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 
 	case appevent.UpdateMigrationMsg:
-		steps := append([]migrator.MigrationStep{
+		steps := slices.Clone(msg.Steps)
+		steps = append([]migrator.MigrationStep{
 			{
 				Version:    0,
 				Identifier: "ROOT (no migration applied)",
 			},
-		}, msg.Steps...)
+		}, steps...)
 
-		m.migration = migrator.Migration{
-			Steps:            steps,
-			AppliedMigration: maps.Clone(msg.AppliedMigration),
-			CurrentVersion:   msg.CurrentVersion,
-			IsDirty:          msg.IsDirty,
+		items := make([]list.Item, 0, len(steps))
+		for _, migration := range steps {
+			_, ok := msg.AppliedMigration[migration.Signature]
+
+			items = append(items, item{
+				step:           migration,
+				currentVersion: msg.CurrentVersion,
+				isDirty:        msg.IsDirty,
+				isApplied:      ok,
+			})
 		}
 
-		agg.Add(m.SetCursor(m.indexOfVersion(m.migration.CurrentVersion)))
+		m.list.SetItems(items)
+		agg.Add(m.moveCursorCmd(m.list.SetCursor(m.indexOfVersion(msg.CurrentVersion))))
 
 		// unlock here as we always update migration state after every operation
 		m.unlock()
 	}
 
-	if m.IsFocused() {
-		m.viewport, cmd = m.viewport.Update(msg)
-		agg.Add(cmd)
-	}
+	m.list, cmd = m.list.Update(msg)
+	agg.Add(cmd)
 
 	return m, tea.Batch(agg...)
 }
 
 func (m *Model) Render(ctx brownsugar.Context) string {
-	var (
-		scrollpane = scrollpane.New().
-				Foreground(m.borderColor()).
-				BorderStyle(lipgloss.RoundedBorder()).
-				CursorStyle(lipgloss.OuterHalfBlockBorder())
+	m.list.FocusAtCursor()
+	m.list.SetBorderForegroundColor(m.borderColor())
 
-		width  = ctx.Width - scrollpane.GetHorizontalBorderSize()
-		height = ctx.Height - scrollpane.GetVerticalBorderSize()
-	)
-
-	var longestVersionLength int
-	for _, migration := range m.migration.Steps {
-		longestVersionLength = max(longestVersionLength, len(strconv.FormatInt(int64(migration.Version), 10)))
-	}
-
-	contents := []string{}
-	for i, migration := range m.migration.Steps {
-		var (
-			isDirtyVersion = migration.Version == m.migration.CurrentVersion && m.migration.IsDirty
-			isMigrated     = migration.Version <= m.migration.CurrentVersion
-			isSelected     = m.cursor == i
-		)
-
-		cursor := " "
-		if migration.Version == m.migration.CurrentVersion {
-			if isDirtyVersion {
-				cursor = "✗"
-			} else {
-				cursor = "▶"
-			}
-		}
-
-		symbol := " "
-		if migration.Version == 0 {
-			symbol = "○"
-		} else if _, ok := m.migration.AppliedMigration[migration.Signature]; ok {
-			symbol = "✔"
-		} else {
-			symbol = "○"
-		}
-
-		line := fmt.Sprintf("%s %s %d %s",
-			cursor,
-			symbol,
-			migration.Version,
-			migration.Identifier,
-		)
-
-		style := lipgloss.NewStyle().
-			BorderLeft(false).
-			BorderStyle(lipgloss.OuterHalfBlockBorder())
-
-		if isDirtyVersion {
-			style = style.
-				Bold(false).
-				Background(brownsugar.ColorRed).
-				Foreground(brownsugar.ColorBlack)
-		}
-
-		if !isMigrated {
-			style = style.
-				Bold(false).
-				Foreground(brownsugar.ColorBrightBlack)
-		}
-
-		if isSelected {
-			style = style.
-				Bold(true).
-				Foreground(brownsugar.ColorCyan).
-				Background(brownsugar.ColorBrightBlack).
-				BorderLeft(true)
-
-			if isDirtyVersion {
-				style = style.
-					Bold(true).
-					Background(brownsugar.ColorRed).
-					Foreground(brownsugar.ColorWhite)
-			}
-		}
-
-		style = style.
-			BorderForeground(style.GetForeground()).
-			BorderBackground(style.GetBackground()).
-			PaddingLeft(1 - style.GetBorderLeftSize())
-
-		lineWidth := len(line) + style.GetBorderLeftSize() + style.GetPaddingLeft()
-
-		contents = append(
-			contents,
-			style.Width(max(ctx.Width, lineWidth)).Render(line),
-		)
-	}
-
-	m.viewport.SetWidth(width)
-	m.viewport.SetHeight(height)
-	m.viewport.SetContent(strings.Join(contents, "\n"))
-	m.focusAtCursor()
-
-	return scrollpane.
-		SetTotalLine(len(m.migration.Steps)).
-		SetVisibleLine(m.viewport.Height()).
-		SetCurrentLine(m.viewport.YOffset()).
-		Render(m.viewport.View())
+	return m.list.Render(brownsugar.Context{
+		Width:  ctx.Width,
+		Height: ctx.Height,
+	})
 }
 
-func (m *Model) SetCursor(cursor int) tea.Cmd {
-	if cursor < 0 {
-		cursor = 0
-	} else if cursor >= m.numberOfSteps() {
-		cursor = m.numberOfSteps() - 1
-	}
-
-	if m.cursor != cursor {
-		m.cursor = cursor
-		return brownsugar.Cmd(appevent.NewSelectMigrationStepMsg(m.migration.Steps[m.cursor]))
-	}
-
-	return nil
+func (m *Model) getSelectedMigrationStep() migrator.MigrationStep {
+	return m.list.GetSelectedItem().(item).step
 }
 
-func (m *Model) GetSelectedMigrationStep() migrator.MigrationStep {
-	return m.migration.Steps[m.cursor]
+func (m *Model) moveCursorCmd(moved int) tea.Cmd {
+	return func() tea.Msg {
+		if moved != 0 {
+			return appevent.NewSelectMigrationStepMsg(m.getSelectedMigrationStep())
+		}
+		return nil
+	}
 }
 
 func (m *Model) borderColor() lipgloss.ANSIColor {
@@ -269,30 +151,9 @@ func (m *Model) borderColor() lipgloss.ANSIColor {
 }
 
 func (m *Model) indexOfVersion(version uint) int {
-	return slices.IndexFunc(m.migration.Steps, func(migration migrator.MigrationStep) bool {
-		return migration.Version == version
+	return slices.IndexFunc(m.list.GetItems(), func(i list.Item) bool {
+		return i.(item).step.Version == version
 	})
-}
-
-func (m *Model) focusAtCursor() {
-	var (
-		offset = m.cursor - m.viewport.Height()/2
-
-		topBound    = m.cursor - m.viewport.Height()/2
-		bottomBound = m.cursor + m.viewport.Height()/2
-	)
-
-	if topBound < 0 {
-		offset = 0
-	} else if bottomBound >= m.numberOfSteps() {
-		offset = topBound
-	}
-
-	m.viewport.SetYOffset(offset)
-}
-
-func (m *Model) numberOfSteps() int {
-	return len(m.migration.Steps)
 }
 
 func (m *Model) lock() bool {
