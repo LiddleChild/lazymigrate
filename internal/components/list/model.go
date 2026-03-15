@@ -71,7 +71,6 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 	m.viewport.SetWidth(width)
 	m.viewport.SetHeight(height)
 	m.viewport.SetContent(lipgloss.JoinVertical(lipgloss.Top, contents...))
-	m.FocusAtCursor()
 
 	return scrollpane.
 		SetTotalLine(len(m.items)).
