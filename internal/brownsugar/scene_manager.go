@@ -1,12 +1,15 @@
 package brownsugar
 
-import tea "charm.land/bubbletea/v2"
+import (
+	tea "charm.land/bubbletea/v2"
+)
 
 var _ ViewModel = (*SceneManager)(nil)
 
 type SceneManager struct {
 	currentScene string
 	sceneMap     map[string]SceneModel
+	initialized  bool
 }
 
 func NewSceneManager(currentScene string, scenes ...SceneModel) *SceneManager {
@@ -18,22 +21,31 @@ func NewSceneManager(currentScene string, scenes ...SceneModel) *SceneManager {
 	return &SceneManager{
 		currentScene: currentScene,
 		sceneMap:     sceneMap,
+		initialized:  false,
 	}
 }
 
 func (sm *SceneManager) Init() tea.Cmd {
-	agg := CmdAggregator{}
-	for _, scene := range sm.sceneMap {
-		agg.Add(scene.Init())
-	}
-
-	return tea.Batch(agg...)
+	return tea.Sequence(
+		Cmd(NewSwitchSceneMsg(sm.currentScene)),
+		sm.initialize,
+	)
 }
 
 func (sm *SceneManager) Update(msg tea.Msg) (ViewModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case SwitchSceneMsg:
 		sm.currentScene = msg.Scene
+
+		scene, ok := sm.sceneMap[sm.currentScene]
+		if ok {
+			return sm, scene.Init()
+		}
+
+		return sm, nil
+	}
+
+	if !sm.initialized {
 		return sm, nil
 	}
 
@@ -55,4 +67,9 @@ func (sm *SceneManager) Render(ctx Context) string {
 	}
 
 	return scene.Render(ctx)
+}
+
+func (sm *SceneManager) initialize() tea.Msg {
+	sm.initialized = true
+	return nil
 }
