@@ -26,6 +26,7 @@ var (
 	KeyEsc   = key.NewBinding(key.WithKeys("esc"))
 	Keyn     = key.NewBinding(key.WithKeys("n"))
 	Keyl     = key.NewBinding(key.WithKeys("l"))
+	Keyc     = key.NewBinding(key.WithKeys("c"))
 )
 
 var _ brownsugar.SceneModel = (*Model)(nil)
@@ -89,6 +90,9 @@ func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 
 		case key.Matches(msg, Keyn):
 			return m, brownsugar.Cmd(brownsugar.NewSwitchSceneMsg(appscene.SceneNewMigration))
+
+		case key.Matches(msg, Keyc):
+			return m, brownsugar.Cmd(brownsugar.NewSwitchSceneMsg(appscene.SceneSources))
 		}
 	}
 

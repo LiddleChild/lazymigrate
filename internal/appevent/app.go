@@ -9,3 +9,9 @@ type UpdateMigrationRequestMsg struct{}
 func NewUpdateMigrationRequestMsg() tea.Msg {
 	return UpdateMigrationRequestMsg{}
 }
+
+type UpdateSourcesRequestMsg struct{}
+
+func NewUpdateSourcesRequestMsg() tea.Msg {
+	return UpdateSourcesRequestMsg{}
+}

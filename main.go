@@ -57,22 +57,22 @@ func run() error {
 		return err
 	}
 
-	var manager *source.Manager
+	var sourcesManger *source.Manager
 	if cfg.SourceFilePath != "" {
-		manager, err = source.NewManagerFromPath(cache, cfg.SourceFilePath)
+		sourcesManger, err = source.NewManagerFromPath(cache, cfg.SourceFilePath)
 	} else {
-		manager, err = source.NewManagerFromSource(cfg.Path, cfg.Database)
+		sourcesManger, err = source.NewManagerFromSource(cfg.Path, cfg.Database)
 	}
 	if err != nil {
 		return err
 	}
 
-	migrator, err := migrator.New(cache, manager, cfg.IsVerbose)
+	migrator, err := migrator.New(cache, sourcesManger.GetCurrentSource(), cfg.IsVerbose)
 	if err != nil {
 		return err
 	}
 
-	app := app.New(migrator)
+	app := app.New(migrator, sourcesManger)
 	p := tea.NewProgram(app)
 
 	go func() {

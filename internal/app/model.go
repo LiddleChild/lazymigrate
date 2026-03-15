@@ -9,11 +9,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/homescene"
 	"github.com/LiddleChild/lazymigrate/internal/app/newmigrationscene"
+	"github.com/LiddleChild/lazymigrate/internal/app/sourcesscene"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/appscene"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
+	"github.com/LiddleChild/lazymigrate/internal/source"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -25,7 +27,8 @@ var (
 var _ tea.Model = (*model)(nil)
 
 type model struct {
-	migrator *migrator.Migrator
+	migrator      *migrator.Migrator
+	sourceManager *source.Manager
 
 	width  int
 	height int
@@ -33,18 +36,20 @@ type model struct {
 	sceneManager brownsugar.ViewModel
 }
 
-func New(migrator *migrator.Migrator) tea.Model {
+func New(migrator *migrator.Migrator, sourceManager *source.Manager) tea.Model {
 	sceneManager := brownsugar.NewSceneManager(
 		appscene.SceneHome,
 		homescene.New(),
 		newmigrationscene.New(),
+		sourcesscene.New(),
 	)
 
 	return &model{
-		migrator:     migrator,
-		width:        0,
-		height:       0,
-		sceneManager: sceneManager,
+		migrator:      migrator,
+		sourceManager: sourceManager,
+		width:         0,
+		height:        0,
+		sceneManager:  sceneManager,
 	}
 }
 
@@ -85,6 +90,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, brownsugar.Cmd(appevent.NewUpdateMigrationMsg(migration))
+
+	case appevent.UpdateSourcesRequestMsg:
+		return m, brownsugar.Cmd(appevent.NewUpdateSourcesMsg(
+			m.sourceManager.GetCurrentSourceIndex(),
+			m.sourceManager.ListSources(),
+		))
 
 	case appevent.MigrateMsg:
 		return m, tea.Sequence(

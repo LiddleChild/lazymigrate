@@ -24,7 +24,7 @@ type connectionFile struct {
 }
 
 type Manager struct {
-	index   uint
+	index   int
 	sources []Source
 }
 
@@ -60,14 +60,9 @@ func NewManagerFromPath(cache *cache.Cache, path string) (*Manager, error) {
 
 	sources := make([]Source, 0, len(connFile.Sources))
 	for _, source := range connFile.Sources {
-		absPath, err := filepath.Abs(source.Path)
-		if err != nil {
-			return nil, err
-		}
-
 		s, err := NewSource(
 			source.Name,
-			absPath,
+			source.Path,
 			source.Database,
 		)
 		if err != nil {
@@ -93,7 +88,15 @@ func (m *Manager) GetCurrentSource() Source {
 	return m.sources[m.index]
 }
 
-func readIndexFromCache(cache *cache.Cache, path string) (uint, error) {
+func (m *Manager) GetCurrentSourceIndex() int {
+	return m.index
+}
+
+func (m *Manager) ListSources() []Source {
+	return m.sources
+}
+
+func readIndexFromCache(cache *cache.Cache, path string) (int, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return 0, err
@@ -109,10 +112,10 @@ func readIndexFromCache(cache *cache.Cache, path string) (uint, error) {
 		return 0, err
 	}
 
-	index, err := strconv.ParseUint(string(rawIndex), 10, 32)
+	index, err := strconv.ParseInt(string(rawIndex), 10, 32)
 	if err != nil {
 		return 0, err
 	}
 
-	return uint(index), nil
+	return int(index), nil
 }

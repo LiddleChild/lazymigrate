@@ -36,11 +36,9 @@ type Migrator struct {
 	steps          []MigrationStep
 }
 
-func New(cache *cache.Cache, sourceManager *source.Manager, verbose bool) (*Migrator, error) {
-	source := sourceManager.GetCurrentSource()
-
+func New(cache *cache.Cache, source source.Source, verbose bool) (*Migrator, error) {
 	var (
-		sourceURL   = fmt.Sprintf("file://%s", source.Path)
+		sourceURL   = fmt.Sprintf("file://%s", source.FullPath)
 		databaseURL = source.DatabaseURL.String()
 	)
 
@@ -58,7 +56,7 @@ func New(cache *cache.Cache, sourceManager *source.Manager, verbose bool) (*Migr
 		return nil, err
 	}
 
-	steps, err := loadMigrations(source.Path)
+	steps, err := loadMigrations(source.FullPath)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +89,7 @@ func New(cache *cache.Cache, sourceManager *source.Manager, verbose bool) (*Migr
 
 	return &Migrator{
 		client:           client,
-		path:             source.Path,
+		path:             source.FullPath,
 		cache:            cache,
 		cacheKey:         cacheKey,
 		appliedMigration: appliedMigration,
