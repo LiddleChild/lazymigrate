@@ -61,7 +61,6 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 	for i, item := range m.items {
 		contents = append(contents,
 			item.Render(Context{
-				Index:    i,
 				Width:    ctx.Width,
 				Selected: i == m.cursor,
 			}),
