@@ -155,6 +155,10 @@ func (m *Model) SetItems(items []Item) {
 		accuHeight += item.Height() + m.gap
 	}
 
+	// include the last height to complete the array
+	// also remove gap from last height as its the last item
+	m.accumulatedHeights = append(m.accumulatedHeights, accuHeight-m.gap)
+
 	// reset cursor to ensure that cursor is always in bound
 	m.SetCursor(m.cursor)
 }
