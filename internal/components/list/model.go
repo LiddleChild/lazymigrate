@@ -2,6 +2,7 @@ package list
 
 import (
 	"slices"
+	"strings"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -18,6 +19,7 @@ type Model struct {
 	items              []Item
 	accumulatedHeights []int
 
+	gap                   int
 	borderForegroundColor lipgloss.ANSIColor
 
 	viewport viewport.Model
@@ -33,6 +35,7 @@ func New() *Model {
 		cursor:                0,
 		items:                 make([]Item, 0),
 		accumulatedHeights:    make([]int, 0),
+		gap:                   0,
 		borderForegroundColor: brownsugar.ColorWhite,
 		viewport:              viewport,
 	}
@@ -69,9 +72,11 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 		contents = append(contents, content)
 	}
 
+	content := strings.Join(contents, strings.Repeat("\n", m.gap+1))
+
 	m.viewport.SetWidth(width)
 	m.viewport.SetHeight(height)
-	m.viewport.SetContent(lipgloss.JoinVertical(lipgloss.Top, contents...))
+	m.viewport.SetContent(content)
 
 	totalLine := 0
 	if len(m.accumulatedHeights) > 0 {
@@ -147,7 +152,7 @@ func (m *Model) SetItems(items []Item) {
 	var accuHeight int
 	for _, item := range items {
 		m.accumulatedHeights = append(m.accumulatedHeights, accuHeight)
-		accuHeight += item.Height()
+		accuHeight += item.Height() + m.gap
 	}
 
 	// reset cursor to ensure that cursor is always in bound
@@ -160,6 +165,10 @@ func (m *Model) GetSelectedItem() Item {
 
 func (m *Model) SetBorderForegroundColor(color lipgloss.ANSIColor) {
 	m.borderForegroundColor = color
+}
+
+func (m *Model) SetGap(gap int) {
+	m.gap = gap
 }
 
 func (m *Model) cursorWithHeight() int {
