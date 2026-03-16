@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	KeyEsc  = key.NewBinding(key.WithKeys("esc"))
-	KeyDown = key.NewBinding(key.WithKeys("j", "down"))
-	KeyUp   = key.NewBinding(key.WithKeys("k", "up"))
+	KeyEsc    = key.NewBinding(key.WithKeys("esc"))
+	KeyDown   = key.NewBinding(key.WithKeys("j", "down"))
+	KeyUp     = key.NewBinding(key.WithKeys("k", "up"))
+	KeySelect = key.NewBinding(key.WithKeys("enter"))
 )
 
 var _ brownsugar.SceneModel = (*Model)(nil)
@@ -52,6 +53,14 @@ func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 
 		case key.Matches(msg, KeyUp):
 			m.list.Up()
+			return m, nil
+
+		case key.Matches(msg, KeySelect):
+			item := m.list.GetSelectedItem().(item)
+			if !item.current {
+				return m, brownsugar.Cmd(appevent.NewChangeMigratorSourceMsg(item.Source))
+			}
+
 			return m, nil
 		}
 

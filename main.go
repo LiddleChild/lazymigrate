@@ -61,14 +61,14 @@ func run() error {
 	if cfg.SourceFilePath != "" {
 		sourcesManger, err = source.NewManagerFromPath(cache, cfg.SourceFilePath)
 	} else {
-		sourcesManger, err = source.NewManagerFromSource(cfg.Path, cfg.Database)
+		sourcesManger, err = source.NewManagerFromSource(cache, cfg.Path, cfg.Database)
 	}
 	if err != nil {
 		return err
 	}
 
-	migrator, err := migrator.New(cache, sourcesManger.GetCurrentSource(), cfg.IsVerbose)
-	if err != nil {
+	migrator := migrator.New(cache, cfg.IsVerbose)
+	if err := migrator.Open(sourcesManger.GetCurrentSource()); err != nil {
 		return err
 	}
 

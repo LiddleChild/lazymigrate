@@ -8,8 +8,8 @@ import (
 	"maps"
 	"os"
 	gopath "path"
-	"path/filepath"
 	"slices"
+	"sync"
 
 	"github.com/LiddleChild/lazymigrate/internal/cache"
 	"github.com/LiddleChild/lazymigrate/internal/source"
@@ -19,28 +19,48 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-type Migrator struct {
+type migrator struct {
 	client *client
-	path   string
+	source source.Source
 
-	cache            *cache.Cache
-	cacheKey         string
+	currentVersion   uint
+	isDirty          bool
+	steps            []MigrationStep
 	appliedMigration map[Signature]MigrationStep
-
-	currentVersion uint
-	isDirty        bool
-	steps          []MigrationStep
 }
 
-func New(cache *cache.Cache, source source.Source, verbose bool) (*Migrator, error) {
+type Migrator struct {
+	*migrator
+	sync.RWMutex
+
+	cache   *cache.Cache
+	verbose bool
+}
+
+func New(cache *cache.Cache, verbose bool) *Migrator {
+	return &Migrator{
+		cache:    cache,
+		migrator: nil,
+		verbose:  verbose,
+	}
+}
+
+func (m *Migrator) Open(source source.Source) error {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.migrator != nil {
+		m.client.Disconnect()
+	}
+
 	var (
 		sourceURL   = fmt.Sprintf("file://%s", source.FullPath)
 		databaseURL = source.DatabaseURL.String()
 	)
 
-	client, err := newClient(sourceURL, databaseURL, verbose)
+	client, err := newClient(sourceURL, databaseURL, m.verbose)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	currentVersion, isDirty, err := client.Version()
@@ -49,22 +69,22 @@ func New(cache *cache.Cache, source source.Source, verbose bool) (*Migrator, err
 		currentVersion = 0
 		isDirty = false
 	case err != nil:
-		return nil, err
+		return err
 	}
 
 	steps, err := loadMigrations(source.FullPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	cacheKey, err := source.Hash()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	buffer, err := cache.Read(cacheKey)
+	buffer, err := m.cache.Read(cacheKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	appliedMigration := make(map[Signature]MigrationStep)
@@ -83,20 +103,20 @@ func New(cache *cache.Cache, source source.Source, verbose bool) (*Migrator, err
 		})
 	}
 
-	return &Migrator{
+	m.migrator = &migrator{
 		client:           client,
-		path:             source.FullPath,
-		cache:            cache,
-		cacheKey:         cacheKey,
-		appliedMigration: appliedMigration,
+		source:           source,
 		currentVersion:   currentVersion,
 		isDirty:          isDirty,
 		steps:            steps,
-	}, nil
+		appliedMigration: appliedMigration,
+	}
+
+	return nil
 }
 
 func (m *Migrator) Stop() {
-	m.client.GracefulStop <- true
+	m.client.Disconnect()
 }
 
 func (m *Migrator) GetMigration() (*Migration, error) {
@@ -106,7 +126,7 @@ func (m *Migrator) GetMigration() (*Migration, error) {
 		return nil, err
 	}
 
-	m.steps, err = loadMigrations(m.path)
+	m.steps, err = loadMigrations(m.source.FullPath)
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +140,9 @@ func (m *Migrator) GetMigration() (*Migration, error) {
 }
 
 func (m *Migrator) GetMigrationState() (uint, bool, error) {
+	m.RLock()
+	defer m.RUnlock()
+
 	currentVersion, isDirty, err := m.client.Version()
 	switch {
 	case errors.Is(err, migrate.ErrNilVersion):
@@ -135,6 +158,9 @@ func (m *Migrator) GetMigrationState() (uint, bool, error) {
 }
 
 func (m *Migrator) MigrateToVersion(version uint) error {
+	m.RLock()
+	defer m.RUnlock()
+
 	err := m.client.Steps(int(version) - int(m.currentVersion))
 	if errors.Is(err, migrate.ErrNoChange) {
 		return nil
@@ -153,6 +179,9 @@ func (m *Migrator) MigrateToVersion(version uint) error {
 }
 
 func (m *Migrator) ForceMigrateToVersion(version uint) error {
+	m.RLock()
+	defer m.RUnlock()
+
 	if err := m.client.Force(int(version)); err != nil {
 		return m.handleError(err)
 	}
@@ -164,7 +193,6 @@ func (m *Migrator) ForceMigrateToVersion(version uint) error {
 
 func (m *Migrator) CreateMigration(name string) error {
 	var version uint = 1
-
 	if len(m.steps) > 0 {
 		version = m.steps[len(m.steps)-1].Version
 		version++
@@ -174,7 +202,7 @@ func (m *Migrator) CreateMigration(name string) error {
 		filename := fmt.Sprintf("%06d_%s.%s.sql", version, name, direction)
 
 		// same to migrate
-		f, err := os.OpenFile(gopath.Join(m.path, filename), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+		f, err := os.OpenFile(gopath.Join(m.source.FullPath, filename), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
 			return err
 		}
@@ -190,12 +218,7 @@ func (m *Migrator) CreateMigration(name string) error {
 }
 
 func loadMigrations(path string) ([]MigrationStep, error) {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-
-	f, err := os.Open(absPath)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +249,7 @@ func loadMigrations(path string) ([]MigrationStep, error) {
 			}
 		}
 
-		absPath := gopath.Join(absPath, migration.Raw)
+		absPath := gopath.Join(path, migration.Raw)
 		stepDirection := &MigrationStepDirection{
 			Fullname: migration.Raw,
 			Path:     absPath,
@@ -284,7 +307,12 @@ func (m *Migrator) updateAppliedMigration() error {
 		return err
 	}
 
-	return m.cache.Write(m.cacheKey, buffer)
+	cacheKey, err := m.source.Hash()
+	if err != nil {
+		return err
+	}
+
+	return m.cache.Write(cacheKey, buffer)
 }
 
 type updateAppliedMigrationParam struct {

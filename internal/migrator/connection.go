@@ -54,3 +54,7 @@ func (conn *client) Connect() error {
 
 	return nil
 }
+
+func (conn *client) Disconnect() {
+	conn.GracefulStop <- true
+}

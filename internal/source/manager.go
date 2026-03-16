@@ -24,17 +24,27 @@ type connectionFile struct {
 }
 
 type Manager struct {
+	cache *cache.Cache
+	key   string
+
 	index   int
 	sources []Source
 }
 
-func NewManagerFromSource(path string, database string) (*Manager, error) {
+func NewManagerFromSource(cache *cache.Cache, path string, database string) (*Manager, error) {
 	source, err := NewSource(gopath.Base(path), path, database)
 	if err != nil {
 		return nil, err
 	}
 
+	key, err := toCacheKey(path)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Manager{
+		cache:   cache,
+		key:     key,
 		index:   0,
 		sources: []Source{source},
 	}, nil
@@ -72,13 +82,20 @@ func NewManagerFromPath(cache *cache.Cache, path string) (*Manager, error) {
 		sources = append(sources, s)
 	}
 
-	index, err := readIndexFromCache(cache, path)
+	key, err := toCacheKey(path)
+	if err != nil {
+		return nil, err
+	}
+
+	index, err := readIndexFromCache(cache, key)
 	if err != nil {
 		// ignore error and defaults index to 0
 		index = 0
 	}
 
 	return &Manager{
+		cache:   cache,
+		key:     key,
 		index:   index,
 		sources: sources,
 	}, nil
@@ -92,22 +109,25 @@ func (m *Manager) GetCurrentSourceIndex() int {
 	return m.index
 }
 
+func (m *Manager) SetCurrentSource(source Source) {
+	for i, s := range m.sources {
+		if s.Name == source.Name {
+			m.index = i
+
+			// ignore error
+			_ = writeIndexToCache(m.cache, m.key, m.index)
+
+			return
+		}
+	}
+}
+
 func (m *Manager) ListSources() []Source {
 	return m.sources
 }
 
-func readIndexFromCache(cache *cache.Cache, path string) (int, error) {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return 0, err
-	}
-
-	hasher := sha256.New()
-	if _, err := hasher.Write([]byte(absPath)); err != nil {
-		return 0, err
-	}
-
-	rawIndex, err := cache.Read(hex.EncodeToString(hasher.Sum(nil)))
+func readIndexFromCache(cache *cache.Cache, key string) (int, error) {
+	rawIndex, err := cache.Read(key)
 	if err != nil {
 		return 0, err
 	}
@@ -118,4 +138,22 @@ func readIndexFromCache(cache *cache.Cache, path string) (int, error) {
 	}
 
 	return int(index), nil
+}
+
+func writeIndexToCache(cache *cache.Cache, key string, index int) error {
+	return cache.Write(key, []byte(strconv.FormatInt(int64(index), 10)))
+}
+
+func toCacheKey(path string) (string, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+
+	hasher := sha256.New()
+	if _, err := hasher.Write([]byte(absPath)); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

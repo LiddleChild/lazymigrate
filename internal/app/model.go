@@ -119,6 +119,17 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			brownsugar.Cmd(appevent.NewUpdateMigrationRequestMsg()),
 		)
 
+	case appevent.ChangeMigratorSourceMsg:
+		source := source.Source(msg)
+
+		if err := m.migrator.Open(source); err != nil {
+			return m, brownsugar.Cmd(appevent.NewErrMsg(err))
+		}
+
+		m.sourceManager.SetCurrentSource(source)
+
+		return m, brownsugar.Cmd(appevent.NewUpdateSourcesRequestMsg())
+
 	case appevent.ErrMsg:
 		slog.Error(msg.Err.Error())
 		return m, nil

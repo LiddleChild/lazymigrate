@@ -16,3 +16,9 @@ func NewUpdateSourcesMsg(index int, sources []source.Source) tea.Msg {
 		Sources:            sources,
 	}
 }
+
+type ChangeMigratorSourceMsg source.Source
+
+func NewChangeMigratorSourceMsg(source source.Source) tea.Msg {
+	return ChangeMigratorSourceMsg(source)
+}
