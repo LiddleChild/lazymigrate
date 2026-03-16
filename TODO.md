@@ -1,9 +1,10 @@
-features
+todo
 - help menu
     - properly handle keys
 - able to handle duplicated migration version
-- syntax highlight sql
-- handle dirty state globally
 
-refactors
+improvements
 - refactor logging attribute
+- keep logs pane updated all the time
+- handle dirty state globally
+- syntax highlight sql
