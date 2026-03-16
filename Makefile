@@ -9,3 +9,7 @@ test:
 .PHONY: lint
 lint:
 	golangci-lint run
+
+.PHONY: install
+install:
+	go install

@@ -26,4 +26,4 @@ cd /tmp/$APP_NAME; go install
 # clean up
 rm -rf /tmp/$APP_NAME
 
-echo "$APP_NAME is ready to go"
+echo "$($APP_NAME -version) is ready to go"

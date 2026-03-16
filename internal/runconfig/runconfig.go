@@ -13,6 +13,8 @@ var (
 
 	verboseFlag bool
 	debugFlag   bool
+
+	versionFlag bool
 )
 
 func init() {
@@ -22,15 +24,19 @@ func init() {
 
 	flag.BoolVar(&verboseFlag, "verbose", false, "verbose logging")
 	flag.BoolVar(&debugFlag, "debug", false, "enable debug mode")
+
+	flag.BoolVar(&versionFlag, "version", false, "show version")
 }
 
 type RunConfig struct {
-	Path           string `validate:"required_without=SourceFilePath"`
-	Database       string `validate:"required_without=SourceFilePath"`
-	SourceFilePath string `validate:"required_without=Path Database"`
+	Path           string `validate:"required_without_all=SourceFilePath Version"`
+	Database       string `validate:"required_without_all=SourceFilePath Version"`
+	SourceFilePath string `validate:"required_without_all=Path Database Version"`
 
 	IsVerbose bool
 	IsDebug   bool
+
+	Version bool
 }
 
 func Parse() (RunConfig, error) {
@@ -39,9 +45,10 @@ func Parse() (RunConfig, error) {
 	cfg := RunConfig{
 		Path:           pathFlag,
 		Database:       databaseFlag,
+		SourceFilePath: sourceFilePathFlag,
 		IsVerbose:      verboseFlag,
 		IsDebug:        debugFlag,
-		SourceFilePath: sourceFilePathFlag,
+		Version:        versionFlag,
 	}
 
 	if err := validator.ValidateStruct(cfg); err != nil {

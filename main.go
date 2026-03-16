@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/LiddleChild/lazymigrate/internal/app"
+	"github.com/LiddleChild/lazymigrate/internal/appconfig"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/cache"
 	"github.com/LiddleChild/lazymigrate/internal/log"
@@ -34,6 +35,11 @@ func run() error {
 
 	if err := log.Initialize(cfg.IsDebug); err != nil {
 		return err
+	}
+
+	if cfg.Version {
+		fmt.Println(appconfig.Name, appconfig.Version)
+		return nil
 	}
 
 	logDispatcher := log.NewLogDispatcher()
