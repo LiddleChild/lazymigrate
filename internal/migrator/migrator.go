@@ -49,10 +49,6 @@ func (m *Migrator) Open(source source.Source) error {
 	m.Lock()
 	defer m.Unlock()
 
-	if m.migrator != nil {
-		m.client.Disconnect()
-	}
-
 	var (
 		sourceURL   = fmt.Sprintf("file://%s", source.FullPath)
 		databaseURL = source.DatabaseURL.String()
@@ -101,6 +97,10 @@ func (m *Migrator) Open(source source.Source) error {
 			toVersion:   currentVersion,
 			isDirty:     isDirty,
 		})
+	}
+
+	if m.migrator != nil {
+		m.client.Disconnect()
 	}
 
 	m.migrator = &migrator{
