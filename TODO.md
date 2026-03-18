@@ -1,5 +1,4 @@
 todo
-- show current connection
 - able to handle duplicated migration version
 
 improvements

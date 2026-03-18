@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/homescene/contentview"
 	"github.com/LiddleChild/lazymigrate/internal/app/homescene/migrationview"
+	"github.com/LiddleChild/lazymigrate/internal/app/homescene/sourceview"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/appscene"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
@@ -27,17 +28,21 @@ type Model struct {
 
 	migrationview *migrationview.Model
 	contentview   *contentview.Model
+	sourceview    *sourceview.Model
 }
 
 func New() brownsugar.SceneModel {
-	migrationview := migrationview.New()
-
-	contentview := contentview.New()
+	var (
+		migrationview = migrationview.New()
+		contentview   = contentview.New()
+		sourceview    = sourceview.New()
+	)
 
 	return &Model{
 		focusedPane:   FocusPaneMigration,
 		migrationview: migrationview,
 		contentview:   contentview,
+		sourceview:    sourceview,
 	}
 }
 
@@ -49,6 +54,7 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.migrationview.Init(),
 		m.contentview.Init(),
+		m.sourceview.Init(),
 		m.updateFocusedPane(),
 	)
 }
@@ -84,26 +90,43 @@ func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 	m.contentview, cmd = m.contentview.Update(msg)
 	agg.Add(cmd)
 
+	m.sourceview, cmd = m.sourceview.Update(msg)
+	agg.Add(cmd)
+
 	return m, tea.Batch(agg...)
 }
 
 func (m *Model) Render(ctx brownsugar.Context) string {
-	migrationPane := lipgloss.NewStyle().
+	leftPane := lipgloss.NewStyle().
 		Width(int(math.Round(float64(ctx.Width) / 3))).
 		Height(ctx.Height)
 
-	contentPane := lipgloss.NewStyle().
-		Width(ctx.Width - migrationPane.GetWidth()).
+	sourcePane := leftPane.
+		Width(leftPane.GetWidth()).
+		Height(5)
+
+	migrationPane := leftPane.
+		Width(leftPane.GetWidth()).
+		Height(leftPane.GetHeight() - sourcePane.GetHeight())
+
+	rightPane := lipgloss.NewStyle().
+		Width(ctx.Width - leftPane.GetWidth()).
 		Height(ctx.Height)
 
 	return lipgloss.JoinHorizontal(lipgloss.Left,
-		m.migrationview.Render(brownsugar.Context{
-			Width:  migrationPane.GetWidth(),
-			Height: migrationPane.GetHeight(),
-		}),
+		lipgloss.JoinVertical(lipgloss.Top,
+			m.sourceview.Render(brownsugar.Context{
+				Width:  sourcePane.GetWidth(),
+				Height: sourcePane.GetHeight(),
+			}),
+			m.migrationview.Render(brownsugar.Context{
+				Width:  migrationPane.GetWidth(),
+				Height: migrationPane.GetHeight(),
+			}),
+		),
 		m.contentview.Render(brownsugar.Context{
-			Width:  contentPane.GetWidth(),
-			Height: contentPane.GetHeight(),
+			Width:  rightPane.GetWidth(),
+			Height: rightPane.GetHeight(),
 		}),
 	)
 }
