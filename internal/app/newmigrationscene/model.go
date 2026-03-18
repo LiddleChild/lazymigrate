@@ -37,6 +37,7 @@ func (m *Model) Scene() string {
 }
 
 func (m *Model) Init() tea.Cmd {
+	m.input.SetValue("")
 	return nil
 }
 
