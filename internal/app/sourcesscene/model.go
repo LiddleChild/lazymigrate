@@ -3,7 +3,6 @@ package sourcesscene
 import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/appscene"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
@@ -81,26 +80,10 @@ func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 }
 
 func (m *Model) Render(ctx brownsugar.Context) string {
-	var (
-		width  = min(64, ctx.Width)
-		height = min(32, ctx.Height) // height is roughly 2 times bigger than width
-
-		window = lipgloss.NewStyle().
-			AlignHorizontal(lipgloss.Center).
-			AlignVertical(lipgloss.Center).
-			Width(ctx.Width).
-			Height(ctx.Height)
-	)
-
 	m.list.FocusAtCursor()
 
-	return window.Render(
-		lipgloss.JoinVertical(lipgloss.Top,
-			"Sources",
-			m.list.Render(brownsugar.Context{
-				Width:  width,
-				Height: height,
-			}),
-		),
-	)
+	return m.list.Render(brownsugar.Context{
+		Width:  ctx.Width,
+		Height: ctx.Height,
+	})
 }

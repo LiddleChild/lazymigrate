@@ -5,6 +5,5 @@ todo
 
 improvements
 - refactor logging attribute
-- keep logs pane updated all the time
 - handle dirty state globally
 - syntax highlight sql

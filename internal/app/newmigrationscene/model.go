@@ -70,22 +70,23 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 	var (
 		border = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 
+		frame = border.
+			Width(ctx.Width).
+			Height(ctx.Height).
+			AlignHorizontal(lipgloss.Center).
+			AlignVertical(lipgloss.Center)
+
 		window = border.Width(min(36, ctx.Width))
 	)
 
 	m.input.SetWidth(window.GetWidth() - window.GetHorizontalFrameSize() - len(m.input.Prompt) - 1)
 
-	return lipgloss.NewStyle().
-		Width(ctx.Width).
-		Height(ctx.Height).
-		AlignHorizontal(lipgloss.Center).
-		AlignVertical(lipgloss.Center).
-		Render(
-			window.Render(
-				lipgloss.JoinVertical(lipgloss.Top,
-					"Name",
-					m.input.View(),
-				),
+	return frame.Render(
+		window.Render(
+			lipgloss.JoinVertical(lipgloss.Top,
+				"Name",
+				m.input.View(),
 			),
-		)
+		),
+	)
 }

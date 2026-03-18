@@ -2,12 +2,15 @@ package app
 
 import (
 	"log/slog"
+	"math"
 
 	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/homescene"
+	"github.com/LiddleChild/lazymigrate/internal/app/logsview"
 	"github.com/LiddleChild/lazymigrate/internal/app/newmigrationscene"
 	"github.com/LiddleChild/lazymigrate/internal/app/sourcesscene"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
@@ -34,6 +37,7 @@ type model struct {
 	height int
 
 	sceneManager brownsugar.ViewModel
+	logsview     *logsview.Model
 }
 
 func New(migrator *migrator.Migrator, sourceManager *source.Manager) tea.Model {
@@ -44,17 +48,23 @@ func New(migrator *migrator.Migrator, sourceManager *source.Manager) tea.Model {
 		sourcesscene.New(),
 	)
 
+	logsview := logsview.New()
+
 	return &model{
 		migrator:      migrator,
 		sourceManager: sourceManager,
 		width:         0,
 		height:        0,
 		sceneManager:  sceneManager,
+		logsview:      logsview,
 	}
 }
 
 func (m *model) Init() tea.Cmd {
-	return m.sceneManager.Init()
+	return tea.Batch(
+		m.sceneManager.Init(),
+		m.logsview.Init(),
+	)
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -135,10 +145,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	var cmd tea.Cmd
-	m.sceneManager, cmd = m.sceneManager.Update(msg)
+	var (
+		cmd tea.Cmd
+		agg brownsugar.CmdAggregator
+	)
 
-	return m, cmd
+	m.sceneManager, cmd = m.sceneManager.Update(msg)
+	agg.Add(cmd)
+
+	m.logsview, cmd = m.logsview.Update(msg)
+	agg.Add(cmd)
+
+	return m, tea.Batch(agg...)
 }
 
 func (m *model) View() tea.View {
@@ -148,11 +166,41 @@ func (m *model) View() tea.View {
 
 	return tea.View{
 		AltScreen: true,
-		Content: m.sceneManager.Render(brownsugar.Context{
+		Content: m.Render(brownsugar.Context{
 			Width:  m.width,
 			Height: m.height,
 		}),
 	}
+}
+
+func (m *model) Render(ctx brownsugar.Context) string {
+	var (
+		topHeight    = int(math.Round(float64(ctx.Height) * 2 / 3))
+		bottomHeight = ctx.Height - topHeight
+	)
+
+	topPane := lipgloss.NewStyle().
+		Width(ctx.Width).
+		Height(topHeight)
+
+	bottomPane := lipgloss.NewStyle().
+		Width(ctx.Width).
+		Height(bottomHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Top,
+		topPane.Render(
+			m.sceneManager.Render(brownsugar.Context{
+				Width:  topPane.GetWidth(),
+				Height: topPane.GetHeight(),
+			}),
+		),
+		bottomPane.Render(
+			m.logsview.Render(brownsugar.Context{
+				Width:  bottomPane.GetWidth(),
+				Height: bottomPane.GetHeight(),
+			}),
+		),
+	)
 }
 
 func (m *model) migrateToVersionCmd(version uint) tea.Cmd {
