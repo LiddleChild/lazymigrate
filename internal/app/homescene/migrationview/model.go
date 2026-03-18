@@ -107,7 +107,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 
 		m.list.SetItems(items)
-		agg.Add(m.moveCursorCmd(m.list.SetCursor(m.indexOfVersion(msg.CurrentVersion))))
+		m.list.SetCursor(m.indexOfVersion(msg.CurrentVersion))
+
+		agg.Add(brownsugar.Cmd(appevent.NewSelectMigrationStepMsg(m.getSelectedMigrationStep())))
 
 		// unlock here as we always update migration state after every operation
 		m.unlock()
