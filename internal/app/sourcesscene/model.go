@@ -9,13 +9,6 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/components/list"
 )
 
-var (
-	KeyEsc    = key.NewBinding(key.WithKeys("esc"))
-	KeyDown   = key.NewBinding(key.WithKeys("j", "down"))
-	KeyUp     = key.NewBinding(key.WithKeys("k", "up"))
-	KeySelect = key.NewBinding(key.WithKeys("enter"))
-)
-
 var _ brownsugar.SceneModel = (*Model)(nil)
 
 type Model struct {
@@ -36,25 +29,28 @@ func (m *Model) Scene() string {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return brownsugar.Cmd(appevent.NewUpdateSourcesRequestMsg())
+	return tea.Batch(
+		brownsugar.Cmd(appevent.NewUpdateSourcesRequestMsg()),
+		brownsugar.Cmd(appevent.NewUpdateHelpMenuKeysMsg(m.HelpMenuBindings())),
+	)
 }
 
 func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, KeyEsc):
+		case key.Matches(msg, KeyMap.Back):
 			return m, brownsugar.Cmd(brownsugar.NewSwitchSceneMsg(appscene.SceneHome))
 
-		case key.Matches(msg, KeyDown):
+		case key.Matches(msg, KeyMap.Down):
 			m.list.Down()
 			return m, nil
 
-		case key.Matches(msg, KeyUp):
+		case key.Matches(msg, KeyMap.Up):
 			m.list.Up()
 			return m, nil
 
-		case key.Matches(msg, KeySelect):
+		case key.Matches(msg, KeyMap.Select):
 			item := m.list.GetSelectedItem().(item)
 			if !item.current {
 				return m, brownsugar.Cmd(appevent.NewChangeMigratorSourceMsg(item.Source))
@@ -86,4 +82,8 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 		Width:  ctx.Width,
 		Height: ctx.Height,
 	})
+}
+
+func (m *Model) HelpMenuBindings() []key.Binding {
+	return []key.Binding{KeyMap.Back, KeyMap.Up, KeyMap.Down, KeyMap.Select}
 }

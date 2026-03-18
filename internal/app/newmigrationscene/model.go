@@ -12,11 +12,6 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 )
 
-var (
-	KeyEnter = key.NewBinding(key.WithKeys("enter"))
-	KeyEsc   = key.NewBinding(key.WithKeys("esc"))
-)
-
 var _ brownsugar.SceneModel = (*Model)(nil)
 
 type Model struct {
@@ -38,14 +33,14 @@ func (m *Model) Scene() string {
 
 func (m *Model) Init() tea.Cmd {
 	m.input.SetValue("")
-	return nil
+	return brownsugar.Cmd(appevent.NewUpdateHelpMenuKeysMsg(m.HelpMenuBindings()))
 }
 
 func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, KeyEnter):
+		case key.Matches(msg, KeyMap.Create):
 			value := m.input.Value()
 			m.input.Reset()
 
@@ -53,7 +48,7 @@ func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 
 			return m, brownsugar.Cmd(appevent.NewCreateMigrationMsg(value))
 
-		case key.Matches(msg, KeyEsc):
+		case key.Matches(msg, KeyMap.Back):
 			return m, brownsugar.Cmd(brownsugar.NewSwitchSceneMsg(appscene.SceneHome))
 		}
 
@@ -89,4 +84,8 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 			),
 		),
 	)
+}
+
+func (m *Model) HelpMenuBindings() []key.Binding {
+	return []key.Binding{KeyMap.Back, KeyMap.Create}
 }

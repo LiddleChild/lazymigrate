@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/LiddleChild/lazymigrate/internal/app/homescene/contentview"
 	"github.com/LiddleChild/lazymigrate/internal/app/homescene/migrationview"
+	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/appscene"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 )
@@ -17,13 +18,6 @@ type FocusedPane int
 const (
 	FocusPaneMigration FocusedPane = iota
 	FocusPaneContent
-)
-
-var (
-	KeyEnter = key.NewBinding(key.WithKeys("enter"))
-	KeyEsc   = key.NewBinding(key.WithKeys("esc"))
-	Keyn     = key.NewBinding(key.WithKeys("n"))
-	Keyc     = key.NewBinding(key.WithKeys("c"))
 )
 
 var _ brownsugar.SceneModel = (*Model)(nil)
@@ -37,7 +31,6 @@ type Model struct {
 
 func New() brownsugar.SceneModel {
 	migrationview := migrationview.New()
-	migrationview.Focus()
 
 	contentview := contentview.New()
 
@@ -56,6 +49,7 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.migrationview.Init(),
 		m.contentview.Init(),
+		m.updateFocusedPane(),
 	)
 }
 
@@ -68,18 +62,18 @@ func (m *Model) Update(msg tea.Msg) (brownsugar.SceneModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, KeyEnter):
+		case key.Matches(msg, migrationview.KeyMap.View):
 			m.focusedPane = FocusPaneContent
-			m.updateFocusedPane()
+			agg.Add(m.updateFocusedPane())
 
-		case key.Matches(msg, KeyEsc):
+		case key.Matches(msg, contentview.KeyMap.Back):
 			m.focusedPane = FocusPaneMigration
-			m.updateFocusedPane()
+			agg.Add(m.updateFocusedPane())
 
-		case key.Matches(msg, Keyn):
+		case key.Matches(msg, KeyMap.NewMigration):
 			return m, brownsugar.Cmd(brownsugar.NewSwitchSceneMsg(appscene.SceneNewMigration))
 
-		case key.Matches(msg, Keyc):
+		case key.Matches(msg, KeyMap.ConnectionSource):
 			return m, brownsugar.Cmd(brownsugar.NewSwitchSceneMsg(appscene.SceneSources))
 		}
 	}
@@ -114,7 +108,20 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 	)
 }
 
-func (m *Model) updateFocusedPane() {
+func (m *Model) HelpMenuBindings() []key.Binding {
+	bindings := []key.Binding{KeyMap.NewMigration, KeyMap.ConnectionSource}
+
+	switch m.focusedPane {
+	case FocusPaneMigration:
+		bindings = append(bindings, m.migrationview.HelpMenuBindings()...)
+	case FocusPaneContent:
+		bindings = append(bindings, m.contentview.HelpMenuBindings()...)
+	}
+
+	return bindings
+}
+
+func (m *Model) updateFocusedPane() tea.Cmd {
 	m.migrationview.Blur()
 	m.contentview.Blur()
 
@@ -125,4 +132,6 @@ func (m *Model) updateFocusedPane() {
 	case FocusPaneContent:
 		m.contentview.Focus()
 	}
+
+	return brownsugar.Cmd(appevent.NewUpdateHelpMenuKeysMsg(m.HelpMenuBindings()))
 }

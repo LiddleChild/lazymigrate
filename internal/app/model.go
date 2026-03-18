@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"charm.land/bubbles/v2/cursor"
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -22,11 +23,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-var (
-	Keyq     = key.NewBinding(key.WithKeys("q"))
-	KeyCtrlC = key.NewBinding(key.WithKeys("ctrl+c"))
-)
-
 var _ tea.Model = (*model)(nil)
 
 type model struct {
@@ -36,8 +32,11 @@ type model struct {
 	width  int
 	height int
 
+	bindings []key.Binding
+
 	sceneManager brownsugar.ViewModel
 	logsview     *logsview.Model
+	helpMenu     help.Model
 }
 
 func New(migrator *migrator.Migrator, sourceManager *source.Manager) tea.Model {
@@ -55,8 +54,10 @@ func New(migrator *migrator.Migrator, sourceManager *source.Manager) tea.Model {
 		sourceManager: sourceManager,
 		width:         0,
 		height:        0,
+		bindings:      []key.Binding{KeyMap.Quit},
 		sceneManager:  sceneManager,
 		logsview:      logsview,
+		helpMenu:      help.New(),
 	}
 }
 
@@ -82,7 +83,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, Keyq) || key.Matches(msg, KeyCtrlC):
+		case key.Matches(msg, KeyMap.Quit):
 			m.migrator.Stop()
 			return m, tea.Quit
 		}
@@ -140,6 +141,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, brownsugar.Cmd(appevent.NewUpdateSourcesRequestMsg())
 
+	case appevent.UpdateHelpMenuKeysMsg:
+		m.bindings = append(m.HelpMenuBindings(), msg.Bindings...)
+
 	case appevent.ErrMsg:
 		slog.Error(msg.Err.Error())
 		return m, nil
@@ -185,7 +189,13 @@ func (m *model) Render(ctx brownsugar.Context) string {
 
 	bottomPane := lipgloss.NewStyle().
 		Width(ctx.Width).
-		Height(bottomHeight)
+		Height(bottomHeight - 1)
+
+	m.helpMenu.SetWidth(ctx.Width)
+
+	helpStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
 
 	return lipgloss.JoinVertical(lipgloss.Top,
 		topPane.Render(
@@ -200,7 +210,12 @@ func (m *model) Render(ctx brownsugar.Context) string {
 				Height: bottomPane.GetHeight(),
 			}),
 		),
+		helpStyle.Render(m.helpMenu.ShortHelpView(m.bindings)),
 	)
+}
+
+func (m *model) HelpMenuBindings() []key.Binding {
+	return []key.Binding{KeyMap.Quit}
 }
 
 func (m *model) migrateToVersionCmd(version uint) tea.Cmd {

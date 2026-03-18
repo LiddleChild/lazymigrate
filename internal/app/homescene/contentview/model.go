@@ -18,13 +18,6 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 )
 
-var (
-	Keyj = key.NewBinding(key.WithKeys("j"))
-	Keyk = key.NewBinding(key.WithKeys("k"))
-	Keyg = key.NewBinding(key.WithKeys("g"))
-	KeyG = key.NewBinding(key.WithKeys("G"))
-)
-
 type content struct {
 	name    string
 	content string
@@ -46,6 +39,14 @@ type Model struct {
 
 func New() *Model {
 	viewport := viewport.New()
+	viewport.KeyMap.HalfPageUp.SetEnabled(false)
+	viewport.KeyMap.HalfPageDown.SetEnabled(false)
+	viewport.KeyMap.Left.SetEnabled(false)
+	viewport.KeyMap.Right.SetEnabled(false)
+	viewport.KeyMap.PageDown = KeyMap.PageDown
+	viewport.KeyMap.PageUp = KeyMap.PageUp
+	viewport.KeyMap.Down = KeyMap.Down
+	viewport.KeyMap.Up = KeyMap.Up
 
 	s := spinner.New()
 	s.Spinner = spinner.MiniDot
@@ -186,6 +187,16 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 		SetTotalLine(m.viewport.TotalLineCount()).
 		SetCurrentLine(m.viewport.YOffset()).
 		Render(m.viewport.View())
+}
+
+func (m *Model) HelpMenuBindings() []key.Binding {
+	return []key.Binding{
+		KeyMap.Back,
+		KeyMap.Up,
+		KeyMap.Down,
+		KeyMap.PageUp,
+		KeyMap.PageDown,
+	}
 }
 
 func (m *Model) borderColor() lipgloss.ANSIColor {

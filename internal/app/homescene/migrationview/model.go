@@ -15,15 +15,6 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 )
 
-var (
-	Keyj     = key.NewBinding(key.WithKeys("j", "down"))
-	Keyk     = key.NewBinding(key.WithKeys("k", "up"))
-	Keyg     = key.NewBinding(key.WithKeys("g"))
-	KeyG     = key.NewBinding(key.WithKeys("G"))
-	KeySpace = key.NewBinding(key.WithKeys("space"))
-	Keyf     = key.NewBinding(key.WithKeys("f"))
-)
-
 type Model struct {
 	focus.Model
 
@@ -60,23 +51,23 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 
 		switch {
-		case key.Matches(msg, Keyj) && !m.isLocked.Load():
+		case key.Matches(msg, KeyMap.Down) && !m.isLocked.Load():
 			agg.Add(m.moveCursorCmd(m.list.Down()))
 
-		case key.Matches(msg, Keyk) && !m.isLocked.Load():
+		case key.Matches(msg, KeyMap.Up) && !m.isLocked.Load():
 			agg.Add(m.moveCursorCmd(m.list.Up()))
 
-		case key.Matches(msg, KeyG) && !m.isLocked.Load():
+		case key.Matches(msg, KeyMap.Bottom) && !m.isLocked.Load():
 			agg.Add(m.moveCursorCmd(m.list.Bottom()))
 
-		case key.Matches(msg, Keyg) && !m.isLocked.Load():
+		case key.Matches(msg, KeyMap.Top) && !m.isLocked.Load():
 			agg.Add(m.moveCursorCmd(m.list.Top()))
 
-		case key.Matches(msg, KeySpace) && m.lock():
+		case key.Matches(msg, KeyMap.Migrate) && m.lock():
 			version := m.getSelectedMigrationStep().Version
 			agg.Add(brownsugar.Cmd(appevent.NewMigrateMsg(version)))
 
-		case key.Matches(msg, Keyf) && m.lock():
+		case key.Matches(msg, KeyMap.ForceMigrate) && m.lock():
 			if m.getSelectedMigrationStep().Version > 0 {
 				version := m.getSelectedMigrationStep().Version
 				agg.Add(brownsugar.Cmd(appevent.NewForceMigrateMsg(version)))
@@ -129,6 +120,18 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 		Width:  ctx.Width,
 		Height: ctx.Height,
 	})
+}
+
+func (m *Model) HelpMenuBindings() []key.Binding {
+	return []key.Binding{
+		KeyMap.Up,
+		KeyMap.Down,
+		KeyMap.Top,
+		KeyMap.Bottom,
+		KeyMap.Migrate,
+		KeyMap.ForceMigrate,
+		KeyMap.View,
+	}
 }
 
 func (m *Model) getSelectedMigrationStep() migrator.MigrationStep {
