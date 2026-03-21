@@ -194,6 +194,8 @@ func (m *model) Render(ctx brownsugar.Context) string {
 		Height(bottomHeight - 1)
 
 	m.helpMenu.SetWidth(ctx.Width)
+	m.helpMenu.Styles.ShortKey = m.helpMenu.Styles.ShortKey.Foreground(brownsugar.ColorBrightWhite)
+	m.helpMenu.Styles.ShortDesc = m.helpMenu.Styles.ShortDesc.Foreground(brownsugar.ColorBrightBlack)
 
 	helpStyle := lipgloss.NewStyle().
 		PaddingLeft(1).

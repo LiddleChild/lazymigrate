@@ -69,7 +69,8 @@ func (m *Model) Render(ctx brownsugar.Context) string {
 		border = lipgloss.NewStyle().
 			Width(ctx.Width).
 			Height(ctx.Height).
-			Border(lipgloss.RoundedBorder())
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.White)
 
 		style = lipgloss.NewStyle()
 
