@@ -11,6 +11,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/DataDog/go-sqllexer"
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
 	"github.com/LiddleChild/lazymigrate/internal/components/focus"
@@ -93,28 +94,15 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}))
 
 	case appevent.UpdateMigrationContentMsg:
-		if msg.MigrationStep.Up != nil {
-			buffer, err := os.ReadFile(msg.MigrationStep.Up.Path)
-			if err != nil {
-				return m, brownsugar.Cmd(appevent.NewErrMsg(err))
-			}
-
-			m.upContent.name = msg.MigrationStep.Up.Fullname
-			m.upContent.content = string(buffer)
-		} else {
-			m.upContent = content{}
+		var err error
+		m.upContent, err = m.openMigrationStepDirection(msg.MigrationStep.Up)
+		if err != nil {
+			return m, brownsugar.Cmd(appevent.NewErrMsg(err))
 		}
 
-		if msg.MigrationStep.Down != nil {
-			buffer, err := os.ReadFile(msg.MigrationStep.Down.Path)
-			if err != nil {
-				return m, brownsugar.Cmd(appevent.NewErrMsg(err))
-			}
-
-			m.downContent.name = msg.MigrationStep.Down.Fullname
-			m.downContent.content = string(buffer)
-		} else {
-			m.downContent = content{}
+		m.downContent, err = m.openMigrationStepDirection(msg.MigrationStep.Down)
+		if err != nil {
+			return m, brownsugar.Cmd(appevent.NewErrMsg(err))
 		}
 
 		m.isZeroVersion = msg.MigrationStep.Version == 0
@@ -232,4 +220,52 @@ func (m *Model) renderWithLineNumber(s string) string {
 		strings.Join(arr, "\n"),
 		s,
 	)
+}
+
+func (m *Model) openMigrationStepDirection(step *migrator.MigrationStepDirection) (content, error) {
+	if step == nil {
+		return content{}, nil
+	}
+
+	buffer, err := os.ReadFile(step.Path)
+	if err != nil {
+		return content{}, err
+	}
+
+	var builder strings.Builder
+
+	lexer := sqllexer.New(string(buffer))
+	for {
+		token := lexer.Scan()
+		if token.Type == sqllexer.EOF {
+			break
+		}
+
+		style := lipgloss.NewStyle()
+
+		switch token.Type {
+		case sqllexer.COMMAND,
+			sqllexer.KEYWORD:
+			style = style.Foreground(brownsugar.ColorGreen)
+
+		case sqllexer.IDENT:
+			style = style.Foreground(brownsugar.ColorBrightMagenta)
+
+		case sqllexer.STRING:
+			style = style.Foreground(brownsugar.ColorYellow)
+
+		case sqllexer.COMMENT,
+			sqllexer.MULTILINE_COMMENT:
+			style = style.Foreground(brownsugar.ColorBrightBlack)
+		}
+
+		if _, err := builder.WriteString(style.Render(token.Value)); err != nil {
+			return content{}, err
+		}
+	}
+
+	return content{
+		name:    step.Fullname,
+		content: builder.String(),
+	}, nil
 }

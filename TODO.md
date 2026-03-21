@@ -3,4 +3,3 @@ todo
 
 improvements
 - handle dirty state globally
-- syntax highlight sql
