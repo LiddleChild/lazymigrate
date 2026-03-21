@@ -2,6 +2,7 @@ package log
 
 import (
 	"io"
+	"log/slog"
 	"os"
 	"path"
 
@@ -12,28 +13,43 @@ var (
 	Entry io.Writer
 )
 
-func Initialize(isDebug bool) error {
+type LogFileWriter struct {
+	entry io.Writer
+}
+
+func NewLogFileWriter(isDebug bool) (*LogFileWriter, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	basepath := path.Join(home, ".local/share", appconfig.Name)
 	if err := os.MkdirAll(basepath, os.ModePerm); err != nil {
-		return err
+		return nil, err
 	}
 
+	entryPath := path.Join(basepath, "error.log")
 	if isDebug {
-		Entry, err = os.OpenFile(path.Join(basepath, "debug.log"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
-		if err != nil {
-			return err
-		}
-	} else {
-		Entry, err = os.OpenFile(path.Join(basepath, "error.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
-		if err != nil {
-			return err
-		}
+		entryPath = path.Join(basepath, "debug.log")
 	}
 
-	return nil
+	entry, err := os.OpenFile(entryPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LogFileWriter{
+		entry: entry,
+	}, nil
+}
+
+func (l *LogFileWriter) Handle(level slog.Level) slog.Handler {
+	opts := slog.HandlerOptions{
+		Level: level,
+		ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
+			return attr
+		},
+	}
+
+	return slog.NewTextHandler(l.entry, &opts)
 }

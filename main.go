@@ -33,28 +33,29 @@ func run() error {
 		return err
 	}
 
-	if err := log.Initialize(cfg.IsDebug); err != nil {
-		return err
-	}
-
 	if cfg.Version {
 		fmt.Println(appconfig.Name, appconfig.Version)
 		return nil
 	}
 
+	logFileWriter, err := log.NewLogFileWriter(cfg.IsDebug)
+	if err != nil {
+		return err
+	}
+
 	logDispatcher := log.NewLogDispatcher()
 
-	var handlerOpt slog.HandlerOptions
+	var logLevel slog.Level
 	if cfg.IsDebug {
-		handlerOpt.Level = slog.LevelDebug
+		logLevel = slog.LevelDebug
 	} else {
-		handlerOpt.Level = slog.LevelError
+		logLevel = slog.LevelError
 	}
 
 	slog.SetDefault(
 		slog.New(slog.NewMultiHandler(
-			slog.NewTextHandler(log.Entry, &handlerOpt),
-			logDispatcher.Handler(),
+			logFileWriter.Handle(logLevel),
+			logDispatcher.Handle(slog.LevelInfo),
 		)),
 	)
 

@@ -3,6 +3,7 @@ package app
 import (
 	"log/slog"
 	"math"
+	"strings"
 
 	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/help"
@@ -17,7 +18,6 @@ import (
 	"github.com/LiddleChild/lazymigrate/internal/appevent"
 	"github.com/LiddleChild/lazymigrate/internal/appscene"
 	"github.com/LiddleChild/lazymigrate/internal/brownsugar"
-	"github.com/LiddleChild/lazymigrate/internal/log"
 	"github.com/LiddleChild/lazymigrate/internal/migrator"
 	"github.com/LiddleChild/lazymigrate/internal/source"
 	"github.com/davecgh/go-spew/spew"
@@ -76,8 +76,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		appevent.UpdateMigrationMsg:
 
 	default:
-		// TODO: use slog here
-		spew.Fdump(log.Entry, msg)
+		eventStr := strings.TrimSpace(spew.Sdump(msg))
+		for _, line := range strings.Split(eventStr, "\n") {
+			slog.Debug(line)
+		}
 	}
 
 	switch msg := msg.(type) {

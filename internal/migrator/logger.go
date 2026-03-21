@@ -34,9 +34,9 @@ func (l *migrateLogger) Printf(format string, v ...any) {
 		context.Background(),
 		level,
 		strings.TrimSpace(msg),
-		log.Attribute(
+		log.Attributes(
 			log.AttributeSecondary(),
-		),
+		)...,
 	)
 }
 

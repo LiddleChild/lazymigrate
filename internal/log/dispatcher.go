@@ -8,7 +8,7 @@ import (
 )
 
 type LogDispatcher struct {
-	handler *slog.JSONHandler
+	writer  io.Writer
 	decoder *json.Decoder
 	ch      chan Message
 }
@@ -21,7 +21,7 @@ func NewLogDispatcher() *LogDispatcher {
 	)
 
 	handler := &LogDispatcher{
-		handler: slog.NewJSONHandler(pw, nil),
+		writer:  pw,
 		decoder: decoder,
 		ch:      ch,
 	}
@@ -29,10 +29,14 @@ func NewLogDispatcher() *LogDispatcher {
 	return handler
 }
 
-func (d *LogDispatcher) Handler() slog.Handler {
+func (d *LogDispatcher) Handle(level slog.Level) slog.Handler {
+	opts := slog.HandlerOptions{
+		Level: level,
+	}
+
 	go d.handle()
 
-	return d.handler
+	return slog.NewJSONHandler(d.writer, &opts)
 }
 
 func (d *LogDispatcher) Pull() <-chan Message {
@@ -46,12 +50,11 @@ func (d *LogDispatcher) handle() {
 		}
 
 		var msg struct {
+			LogAttribute
+
 			Time  time.Time `json:"time"`
 			Level LogLevel  `json:"level"`
 			Msg   string    `json:"msg"`
-			Attrs struct {
-				Secondary bool `json:"secondary"`
-			} `json:"attributes"`
 		}
 
 		_ = d.decoder.Decode(&msg)
@@ -60,7 +63,7 @@ func (d *LogDispatcher) handle() {
 			Time:      msg.Time,
 			Level:     msg.Level,
 			Message:   msg.Msg,
-			Secondary: msg.Attrs.Secondary,
+			Secondary: msg.Secondary,
 		}
 	}
 }

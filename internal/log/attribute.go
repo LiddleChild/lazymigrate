@@ -1,17 +1,38 @@
 package log
 
-import "log/slog"
-
-type AttributeKey string
-
-const (
-	AttributeKeySecondary AttributeKey = "secondary"
+import (
+	"encoding/json"
+	"log/slog"
 )
 
-func AttributeSecondary() slog.Attr {
-	return slog.Bool(string(AttributeKeySecondary), true)
+type LogAttribute struct {
+	Secondary bool `json:"secondary,omitempty"`
 }
 
-func Attribute(attrs ...slog.Attr) slog.Attr {
-	return slog.GroupAttrs("attributes", attrs...)
+type logAttributeSetter func(attr LogAttribute) LogAttribute
+
+func AttributeSecondary() logAttributeSetter {
+	return func(attr LogAttribute) LogAttribute {
+		attr.Secondary = true
+		return attr
+	}
+}
+
+func Attributes(setters ...logAttributeSetter) []any {
+	var attribute LogAttribute
+	for _, setter := range setters {
+		attribute = setter(attribute)
+	}
+
+	buffer, _ := json.Marshal(attribute)
+
+	var attributeMap map[string]any
+	_ = json.Unmarshal(buffer, &attributeMap)
+
+	var attrs []any
+	for key, value := range attributeMap {
+		attrs = append(attrs, slog.Any(key, value))
+	}
+
+	return attrs
 }
