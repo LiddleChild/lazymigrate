@@ -13,12 +13,7 @@ type Cache struct {
 }
 
 func New() (*Cache, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	basepath := path.Join(home, ".cache", appconfig.Name)
+	basepath := path.Join(appconfig.CacheDirectoryPath, appconfig.Name)
 	if err := os.MkdirAll(basepath, os.ModePerm); err != nil {
 		return nil, err
 	}

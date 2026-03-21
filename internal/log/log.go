@@ -18,12 +18,7 @@ type LogFileWriter struct {
 }
 
 func NewLogFileWriter(isDebug bool) (*LogFileWriter, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	basepath := path.Join(home, ".local/share", appconfig.Name)
+	basepath := path.Join(appconfig.TempDirectoryPath, appconfig.Name)
 	if err := os.MkdirAll(basepath, os.ModePerm); err != nil {
 		return nil, err
 	}
