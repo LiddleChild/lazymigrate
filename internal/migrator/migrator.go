@@ -31,6 +31,9 @@ type migrator struct {
 
 type Migrator struct {
 	*migrator
+
+	// w lock for opening connection
+	// r lock for using the connection
 	sync.RWMutex
 
 	cache   *cache.Cache
