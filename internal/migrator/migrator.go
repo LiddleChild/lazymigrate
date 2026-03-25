@@ -161,7 +161,15 @@ func (m *Migrator) MigrateToVersion(version uint) error {
 	m.RLock()
 	defer m.RUnlock()
 
-	err := m.client.Steps(int(version) - int(m.currentVersion))
+	fromIndex := slices.IndexFunc(m.steps, func(s MigrationStep) bool {
+		return s.Version == m.currentVersion
+	})
+
+	toIndex := slices.IndexFunc(m.steps, func(s MigrationStep) bool {
+		return s.Version == version
+	})
+
+	err := m.client.Steps(toIndex - fromIndex)
 	if errors.Is(err, migrate.ErrNoChange) {
 		return nil
 	} else if err != nil {
