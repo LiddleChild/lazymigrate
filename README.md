@@ -3,5 +3,5 @@
 ### Installation
 
 ```bash
-go install github.com/LiddleChild/lazymigrate@v1.2.1
+go install github.com/LiddleChild/lazymigrate@v1.2.2
 ```

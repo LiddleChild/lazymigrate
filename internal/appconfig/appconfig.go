@@ -7,7 +7,7 @@ import (
 
 const (
 	Name    = "lazymigrate"
-	Version = "v1.2.1"
+	Version = "v1.2.2"
 )
 
 var (
