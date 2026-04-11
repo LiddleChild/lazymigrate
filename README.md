@@ -3,5 +3,5 @@
 ### Installation
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/LiddleChild/lazymigrate/refs/heads/main/install.sh)"
+go install github.com/LiddleChild/lazymigrate@v1.2.1
 ```
