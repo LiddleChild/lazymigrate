@@ -23,7 +23,7 @@ var KeyMap = keyMap{
 		key.WithHelp("esc", "back"),
 	),
 	Select: key.NewBinding(
-		key.WithKeys("enter"),
-		key.WithHelp("enter", "select"),
+		key.WithKeys("space"),
+		key.WithHelp("space", "select"),
 	),
 }
